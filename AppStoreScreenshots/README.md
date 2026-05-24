@@ -1,8 +1,16 @@
 # App Store screenshots — Earshot
 
-PNG files in this folder are iPhone 17 Pro Max captures at **1320 × 2868 px** — Apple's
-required 6.9" iPhone screenshot size. Upload them to the **6.9" Display** slot in App Store
-Connect; Apple auto-scales them down for smaller devices, so no separate 6.5" set is needed.
+Two size sets, one per App Store Connect upload slot. Upload the folder that matches the slot
+the app's listing shows:
+
+| Folder        | Pixels        | Device captured on        | App Store Connect slot |
+|---------------|---------------|---------------------------|------------------------|
+| `6.9-inch/`   | 1320 × 2868   | iPhone 17 Pro Max (iOS 26)| **6.9" Display** |
+| `6.5-inch/`   | 1242 × 2688   | iPhone 11 Pro Max (iOS 18)| **6.5" Display** (accepts 1242×2688 or 1284×2778) |
+
+Each folder has the same 8 screens (below). If the listing only exposes one slot, use that
+folder; if it exposes both, upload both. Both are native captures at the exact accepted
+resolution — no rescaling — so text stays sharp.
 
 ## What's here
 
@@ -37,12 +45,18 @@ talk, then side-button + volume-up. Drop the PNG in as `00_captions.png`.
 
 ## Regenerating the Simulator screens
 
+Pick the device for the size you want (the Debug `.app` installs on any of them):
+- **6.9" / 1320×2868:** iPhone 17 Pro Max, e.g. `DB771742-7FAF-4283-9E80-CCE95B4BC433` → `OUT=6.9-inch`
+- **6.5" / 1242×2688:** iPhone 11 Pro Max on iOS 18, create with
+  `xcrun simctl create Earshot-65 com.apple.CoreSimulator.SimDeviceType.iPhone-11-Pro-Max com.apple.CoreSimulator.SimRuntime.iOS-18-4` → `OUT=6.5-inch`
+
 ```bash
-DEV=DB771742-7FAF-4283-9E80-CCE95B4BC433        # iPhone 17 Pro Max (1320×2868)
+DEV=<udid-from-above>
+OUT=6.9-inch                                     # or 6.5-inch
 BID=com.briankemler.LiveTranscribe
 APP=./DerivedData/Build/Products/Debug-iphonesimulator/LiveTranscribe.app
 
-xcrun simctl boot "$DEV"; xcrun simctl bootstatus "$DEV" -b
+xcrun simctl bootstatus "$DEV" -b
 xcrun simctl ui "$DEV" appearance dark
 xcrun simctl install "$DEV" "$APP"
 
@@ -51,16 +65,16 @@ cap () {  # file  extra-args...
   xcrun simctl terminate "$DEV" "$BID" 2>/dev/null
   xcrun simctl launch "$DEV" "$BID" --palette warm "$@"
   sleep 3
-  xcrun simctl io "$DEV" screenshot "AppStoreScreenshots/$file"
+  xcrun simctl io "$DEV" screenshot "AppStoreScreenshots/$OUT/$file"
 }
-cap 00_captions.png       --route live11 --demo-captions
-cap 01_onboarding.png     --route onboarding1
-cap 02_home.png           --route home
-cap 03_alert.png          --route alert
+cap 00_captions.png        --route live11 --demo-captions
+cap 01_onboarding.png      --route onboarding1
+cap 02_home.png            --route home
+cap 03_alert.png           --route alert
 cap 04_sound_detection.png --route soundSettings
-cap 05_settings.png       --route settings
+cap 05_settings.png        --route settings
 cap 06_acknowledgements.png --route acknowledgements
-cap 07_privacy.png        --route privacyPolicy
+cap 07_privacy.png         --route privacyPolicy
 ```
 
 The `AppStoreMetadata.md` doc in the project root has the marketing copy that goes with
