@@ -270,6 +270,21 @@ final class LiveSession {
         return r.isStarred
     }
 
+#if DEBUG
+    /// Screenshot/demo seeding. Populates the caption slots with scripted lines and skips the
+    /// real audio + model pipeline entirely. Triggered only by the `--demo-captions` launch
+    /// arg on a Debug build (see `CaptionsView.task`); the whole method is compiled out of
+    /// Release, so the App Store binary is unaffected. This exists because the iOS Simulator
+    /// on Apple Silicon can't capture mic input, so a populated captions screen — the app's
+    /// hero shot — can't otherwise be screenshotted without a physical device.
+    func seedDemoCaptions(history: [TranscriptLine], current: TranscriptLine) {
+        lines = history
+        currentLine = current
+        // Suppress the silence pill: pretend the last line landed just now.
+        lastNonEmptyEmissionWallClock = Date()
+    }
+#endif
+
     // MARK: - Persistence helpers
 
     /// Insert the empty `ConversationRecord` for this session so downstream writes can

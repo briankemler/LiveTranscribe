@@ -234,6 +234,20 @@ struct CaptionsView: View {
             s.armedSounds = tweaks.armedSounds
             s.soundRecognitionEnabled = tweaks.soundRecognitionEnabled
             session = s
+#if DEBUG
+            // App Store screenshot path: `--demo-captions` seeds scripted lines and skips the
+            // real mic + model pipeline (the Simulator can't capture audio). Debug-only.
+            if ProcessInfo.processInfo.arguments.contains("--demo-captions") {
+                s.seedDemoCaptions(
+                    history: [
+                        .init(speaker: .maya, text: "I had the most ridiculous run this morning —"),
+                        .init(speaker: .maya, text: "a goose chased me halfway around the lake."),
+                    ],
+                    current: .init(speaker: .maya, text: "Honestly though, the espresso here is unreal.")
+                )
+                return
+            }
+#endif
             await s.start()
         }
         .onDisappear {
