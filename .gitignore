@@ -1,0 +1,33 @@
+# Xcode
+build/
+DerivedData/
+DerivedData*/
+.build/
+
+# Phase B / TestFlight archives
+*.xcarchive
+*.ipa
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# XcodeGen — project file is generated, not committed
+LiveTranscribe.xcodeproj/
+
+# Swift Package Manager
+Packages/
+Package.resolved
+.swiftpm/
+
+# macOS
+.DS_Store
+
+# Secrets
+*.xcconfig.local
+.env
+.env.*
+
+# Logs
+*.log

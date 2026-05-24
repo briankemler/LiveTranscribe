@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Transcribe — Design Explorations</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #f0eee9; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+    @keyframes caret { 50% { opacity: 0; } }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="tokens.jsx"></script>
+  <script type="text/babel" src="android-frame.jsx"></script>
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="direction-a.jsx"></script>
+  <script type="text/babel" src="direction-b.jsx"></script>
+  <script type="text/babel" src="direction-c.jsx"></script>
+
+  <script type="text/babel">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "textSize": "large",
+      "density": "comfortable",
+      "darkMode": false,
+      "highContrast": false
+    }/*EDITMODE-END*/;
+
+    // Wrap each direction with current tweaks via CSS variables / scaling
+    const Phone = ({ children, dark, label }) => {
+      const W = 380, H = 800;
+      return (
+        <div style={{ width: W, height: H, borderRadius: 22, overflow: 'hidden',
+          background: dark ? '#1a1612' : '#faf6f1',
+          border: '6px solid rgba(116,119,117,0.4)',
+          boxShadow: '0 30px 80px rgba(0,0,0,0.18)',
+          display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
+          fontFamily: TOKENS.fontUI,
+        }}>
+          {/* tiny status bar */}
+          <div style={{ height: 28, padding: '0 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, fontWeight: 600, color: dark ? '#fff' : TOKENS.ink, flexShrink: 0 }}>
+            <span>9:41</span>
+            <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <span style={{ width: 14, height: 8, borderRadius: 1.5, border: `1px solid ${dark ? '#fff' : TOKENS.ink}`, position: 'relative' }}>
+                <span style={{ position: 'absolute', inset: 1, background: dark ? '#fff' : TOKENS.ink, borderRadius: 0.5, width: '70%' }} />
+              </span>
+            </span>
+          </div>
+          <div style={{ flex: 1, overflow: 'hidden' }}>{children}</div>
+          {/* gesture bar */}
+          <div style={{ height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 90, height: 3, borderRadius: 2, background: dark ? '#fff' : TOKENS.ink, opacity: 0.35 }} />
+          </div>
+        </div>
+      );
+    };
+
+    const phoneArtboard = (Comp, dark = false) => (
+      <Phone dark={dark}><Comp /></Phone>
+    );
+
+    const App = () => {
+      const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+      // Apply tweaks via a CSS variable stamp on the root
+      React.useEffect(() => {
+        const r = document.documentElement;
+        const sizes = { default: 1, large: 1.1, xlarge: 1.25 };
+        r.style.setProperty('--lt-text-scale', sizes[tweaks.textSize] || 1);
+      }, [tweaks.textSize]);
+
+      const PHW = 380, PHH = 800;
+
+      return (
+        <>
+          <DesignCanvas>
+            <DCSection id="overview" title="Live Transcribe" subtitle="Three directions · Android · warm & friendly · on-device">
+            </DCSection>
+
+            <DCSection id="onboarding" title="01 · Onboarding" subtitle="First-run · privacy-forward">
+              <DCArtboard id="a-onb" label="A · Cozy chat" width={PHW} height={PHH}>{phoneArtboard(A_Onboarding)}</DCArtboard>
+              <DCArtboard id="b-onb" label="B · Editorial flow" width={PHW} height={PHH}>{phoneArtboard(B_Onboarding)}</DCArtboard>
+              <DCArtboard id="c-onb" label="C · Speaker stage" width={PHW} height={PHH}>{phoneArtboard(C_Onboarding, true)}</DCArtboard>
+            </DCSection>
+
+            <DCSection id="live11" title="02 · Live 1:1 transcription" subtitle="Coffee with Maya · ambient sounds present">
+              <DCArtboard id="a-11" label="A · Cozy chat" width={PHW} height={PHH}>{phoneArtboard(A_Live11)}</DCArtboard>
+              <DCArtboard id="b-11" label="B · Editorial flow" width={PHW} height={PHH}>{phoneArtboard(B_Live11)}</DCArtboard>
+              <DCArtboard id="c-11" label="C · Speaker stage" width={PHW} height={PHH}>{phoneArtboard(C_Live11)}</DCArtboard>
+            </DCSection>
+
+            <DCSection id="sound" title="03 · Sound recognition · alert moment" subtitle="Smoke alarm detected · how each direction handles urgency">
+              <DCArtboard id="a-snd" label="A · Cozy chat" width={PHW} height={PHH}>{phoneArtboard(A_SoundAlert)}</DCArtboard>
+              <DCArtboard id="b-snd" label="B · Editorial flow" width={PHW} height={PHH}>{phoneArtboard(B_SoundAlert)}</DCArtboard>
+              <DCArtboard id="c-snd" label="C · Speaker stage" width={PHW} height={PHH}>{phoneArtboard(C_SoundAlert)}</DCArtboard>
+            </DCSection>
+
+            <DCSection id="group" title="04 · Group conversation" subtitle="Tuesday dinner · 4 voices, color-coded speakers">
+              <DCArtboard id="a-grp" label="A · Cozy chat" width={PHW} height={PHH}>{phoneArtboard(A_Group)}</DCArtboard>
+              <DCArtboard id="b-grp" label="B · Editorial flow" width={PHW} height={PHH}>{phoneArtboard(B_Group)}</DCArtboard>
+              <DCArtboard id="c-grp" label="C · Speaker stage" width={PHW} height={PHH}>{phoneArtboard(C_Group)}</DCArtboard>
+            </DCSection>
+
+            <DCSection id="speak" title="05 · Type to speak" subtitle="Type a reply, app reads it aloud">
+              <DCArtboard id="a-spk" label="A · Cozy chat" width={PHW} height={PHH}>{phoneArtboard(A_TypeToSpeak)}</DCArtboard>
+              <DCArtboard id="b-spk" label="B · Editorial flow" width={PHW} height={PHH}>{phoneArtboard(B_TypeToSpeak)}</DCArtboard>
+              <DCArtboard id="c-spk" label="C · Speaker stage" width={PHW} height={PHH}>{phoneArtboard(C_TypeToSpeak)}</DCArtboard>
+            </DCSection>
+
+            <DCPostIt top={20} left={60} rotate={-3} width={220}>
+              Each direction explores a different visual metaphor — chat bubbles, editorial column, speaker stage. All share the warm palette + accessible type scale.
+            </DCPostIt>
+          </DesignCanvas>
+
+          <TweaksPanel title="Tweaks">
+            <TweakSection title="Accessibility">
+              <TweakRadio
+                label="Text size"
+                value={tweaks.textSize}
+                onChange={(v) => setTweak('textSize', v)}
+                options={[
+                  { value: 'default', label: 'Default' },
+                  { value: 'large', label: 'Large' },
+                  { value: 'xlarge', label: 'X-Large' },
+                ]}
+              />
+              <TweakToggle label="High contrast" value={tweaks.highContrast} onChange={(v) => setTweak('highContrast', v)} />
+            </TweakSection>
+            <TweakSection title="Appearance">
+              <TweakToggle label="Dark mode" value={tweaks.darkMode} onChange={(v) => setTweak('darkMode', v)} />
+              <TweakRadio
+                label="Density"
+                value={tweaks.density}
+                onChange={(v) => setTweak('density', v)}
+                options={[
+                  { value: 'compact', label: 'Compact' },
+                  { value: 'comfortable', label: 'Comfortable' },
+                ]}
+              />
+            </TweakSection>
+          </TweaksPanel>
+        </>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

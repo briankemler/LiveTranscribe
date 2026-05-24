@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Transcribe — Direction C deep dive</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #f0eee9; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+    @keyframes caret { 50% { opacity: 0; } }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="tokens.jsx"></script>
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="direction-c.jsx"></script>
+  <script type="text/babel" src="direction-c-v2.jsx"></script>
+  <script type="text/babel" src="direction-c-screens.jsx"></script>
+
+  <script type="text/babel">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "textSize": "default",
+      "density": "comfortable",
+      "darkMode": false,
+      "highContrast": false
+    }/*EDITMODE-END*/;
+
+    const Phone = ({ children, dark }) => {
+      const W = 380, H = 800;
+      return (
+        <div style={{ width: W, height: H, borderRadius: 22, overflow: 'hidden',
+          background: dark ? '#1a1612' : '#faf6f1',
+          border: '6px solid rgba(116,119,117,0.4)',
+          boxShadow: '0 30px 80px rgba(0,0,0,0.18)',
+          display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
+          fontFamily: TOKENS.fontUI,
+        }}>
+          <div style={{ height: 28, padding: '0 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, fontWeight: 600, color: dark ? '#fff' : TOKENS.ink, flexShrink: 0 }}>
+            <span>9:41</span>
+            <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <span style={{ width: 14, height: 8, borderRadius: 1.5, border: `1px solid ${dark ? '#fff' : TOKENS.ink}`, position: 'relative' }}>
+                <span style={{ position: 'absolute', inset: 1, background: dark ? '#fff' : TOKENS.ink, borderRadius: 0.5, width: '70%' }} />
+              </span>
+            </span>
+          </div>
+          <div style={{ flex: 1, overflow: 'hidden' }}>{children}</div>
+          <div style={{ height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 90, height: 3, borderRadius: 2, background: dark ? '#fff' : TOKENS.ink, opacity: 0.35 }} />
+          </div>
+        </div>
+      );
+    };
+
+    const ph = (Comp, dark = false) => <Phone dark={dark}><Comp /></Phone>;
+
+    const App = () => {
+      const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const PHW = 380, PHH = 800;
+
+      return (
+        <>
+          <DesignCanvas>
+            <DCSection id="overview" title="Direction C · Speaker Stage" subtitle="Going deeper · active-speaker layouts, sound treatments, full app screens">
+            </DCSection>
+
+            <DCSection id="active-speaker" title="01 · Active speaker treatment" subtitle="How prominent should the current speaker be?">
+              <DCArtboard id="c-orig" label="Original · stacked cards" width={PHW} height={PHH}>{ph(C_Live11)}</DCArtboard>
+              <DCArtboard id="c-hero" label="v2 · Hero card" width={PHW} height={PHH}>{ph(C_Live_Hero)}</DCArtboard>
+              <DCArtboard id="c-spot" label="v3 · Spotlight (dark)" width={PHW} height={PHH}>{ph(C_Live_Spotlight, true)}</DCArtboard>
+              <DCArtboard id="c-stack" label="v4 · Pinned + history" width={PHW} height={PHH}>{ph(C_Live_Stack)}</DCArtboard>
+            </DCSection>
+
+            <DCPostIt top={20} left={60} rotate={-2} width={240}>
+              Each variation makes a different bet about whether the user wants to read the latest line first, or stay grounded in the conversation flow.
+            </DCPostIt>
+
+            <DCSection id="sound-treatment" title="02 · Sound recognition treatments" subtitle="From subtle to dominant — same data, different visual weight">
+              <DCArtboard id="c-snd-orig" label="Original · top timeline" width={PHW} height={PHH}>{ph(C_SoundAlert)}</DCArtboard>
+              <DCArtboard id="c-snd-amb" label="v2 · Ambient watercolor" width={PHW} height={PHH}>{ph(C_Sound_Ambient)}</DCArtboard>
+              <DCArtboard id="c-snd-inline" label="v3 · Inline sound moments" width={PHW} height={PHH}>{ph(C_Sound_Inline)}</DCArtboard>
+              <DCArtboard id="c-snd-margin" label="v4 · Margin annotation" width={PHW} height={PHH}>{ph(C_Sound_Margin)}</DCArtboard>
+            </DCSection>
+
+            <DCPostIt top={20} right={60} rotate={2} width={240}>
+              Margin annotation is the most novel — treats sounds like a reading-app's margin notes, never interrupts the speech column.
+            </DCPostIt>
+
+            <DCSection id="new-screens" title="03 · New screens" subtitle="Home, history, settings, rewind, summary">
+              <DCArtboard id="c-home" label="Home / start" width={PHW} height={PHH}>{ph(C_Home)}</DCArtboard>
+              <DCArtboard id="c-hist" label="Transcript history" width={PHW} height={PHH}>{ph(C_History)}</DCArtboard>
+              <DCArtboard id="c-snds" label="Sound settings" width={PHW} height={PHH}>{ph(C_SoundSettings)}</DCArtboard>
+              <DCArtboard id="c-rewind" label="Rewind · I missed that" width={PHW} height={PHH}>{ph(C_Rewind)}</DCArtboard>
+              <DCArtboard id="c-summary" label="End-of-conversation summary" width={PHW} height={PHH}>{ph(C_Summary)}</DCArtboard>
+            </DCSection>
+
+            <DCPostIt top={20} left={60} rotate={-1} width={260}>
+              "Rewind" is a key insight for HoH users — it's the moment they say "wait, what?" and need to scrub back without losing the live thread.
+            </DCPostIt>
+          </DesignCanvas>
+
+          <TweaksPanel title="Tweaks">
+            <TweakSection title="Accessibility">
+              <TweakRadio label="Text size" value={tweaks.textSize} onChange={(v) => setTweak('textSize', v)}
+                options={[{ value: 'default', label: 'Default' }, { value: 'large', label: 'Large' }, { value: 'xlarge', label: 'X-Large' }]} />
+              <TweakToggle label="High contrast" value={tweaks.highContrast} onChange={(v) => setTweak('highContrast', v)} />
+            </TweakSection>
+            <TweakSection title="Appearance">
+              <TweakToggle label="Dark mode" value={tweaks.darkMode} onChange={(v) => setTweak('darkMode', v)} />
+              <TweakRadio label="Density" value={tweaks.density} onChange={(v) => setTweak('density', v)}
+                options={[{ value: 'compact', label: 'Compact' }, { value: 'comfortable', label: 'Comfortable' }]} />
+            </TweakSection>
+          </TweaksPanel>
+        </>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

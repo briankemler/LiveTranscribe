@@ -1,0 +1,99 @@
+name: LiveTranscribe
+options:
+  bundleIdPrefix: com.briankemler
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  defaultConfig: Debug
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_UPCOMING_FEATURE_INTERNAL_IMPORTS_BY_DEFAULT: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    CODE_SIGN_STYLE: Automatic
+
+packages:
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit
+    from: 0.9.0
+
+targets:
+  LiveTranscribe:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+      - path: Resources/Assets.xcassets
+      - path: Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    dependencies:
+      - package: WhisperKit
+        product: WhisperKit
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Earshot
+        # Version strings MUST be the build-setting placeholders, not literals — xcodegen
+        # regenerates this Info.plist from these properties on every run, so hardcoding the
+        # version here (or editing the generated file by hand) gets wiped. The placeholders
+        # resolve to MARKETING_VERSION / CURRENT_PROJECT_VERSION at build time.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIRequiresFullScreen: NO
+        ITSAppUsesNonExemptEncryption: NO
+        CFBundleURLTypes:
+          - CFBundleURLName: com.briankemler.LiveTranscribe
+            CFBundleURLSchemes:
+              - livetranscribe
+        UIBackgroundModes: []
+        NSMicrophoneUsageDescription: >-
+          Earshot uses the microphone on this device to caption nearby speech and
+          recognize sounds. Audio is processed entirely on-device and never leaves your phone.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.briankemler.LiveTranscribe
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        GENERATE_INFOPLIST_FILE: NO
+        DEVELOPMENT_TEAM: PV52M3H4SN
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "23"
+
+  LiveTranscribeTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - LiveTranscribeTests
+      - path: LiveTranscribeTests/Fixtures
+        buildPhase: resources
+    dependencies:
+      - target: LiveTranscribe
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.briankemler.LiveTranscribeTests
+        BUNDLE_LOADER: $(TEST_HOST)
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/LiveTranscribe.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LiveTranscribe
+
+schemes:
+  LiveTranscribe:
+    build:
+      targets:
+        LiveTranscribe: all
+        LiveTranscribeTests: [test]
+    test:
+      targets:
+        - LiveTranscribeTests
+    run:
+      config: Debug
+    archive:
+      config: Release

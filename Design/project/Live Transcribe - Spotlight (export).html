@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Transcribe — Spotlight (export)</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #0e0b08; font-family: -apple-system, system-ui, sans-serif; overflow: hidden; }
+    * { box-sizing: border-box; }
+    button { -webkit-tap-highlight-color: transparent; }
+    .lt-slide { width: 1920px; height: 1080px; position: relative; background: #0e0b08; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 32px; overflow: hidden; }
+    .lt-slide.active { display: flex; }
+    .lt-slide:not(.active) { display: none; }
+    .lt-label { color: rgba(245,237,224,0.85); font-size: 28px; font-weight: 500; letter-spacing: -0.4; font-family: 'Fraunces', Georgia, serif; }
+    .lt-section { color: rgba(232,152,120,0.95); font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; }
+    .lt-nav { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 1000; background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 999px; backdrop-filter: blur(10px); }
+    .lt-nav button { background: rgba(255,255,255,0.1); border: none; color: #fff; padding: 6px 12px; border-radius: 999px; cursor: pointer; font: 12px system-ui; }
+    .lt-counter { color: rgba(255,255,255,0.6); font: 12px system-ui; padding: 6px 12px; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" src="spotlight/spot-tokens.jsx"></script>
+  <script type="text/babel" src="spotlight/spot-ui.jsx"></script>
+  <script type="text/babel" src="spotlight/spot-onboarding.jsx"></script>
+  <script type="text/babel" src="spotlight/spot-live.jsx"></script>
+  <script type="text/babel" src="spotlight/spot-screens.jsx"></script>
+  <script type="text/babel" src="spotlight/spot-model.jsx"></script>
+
+  <script type="text/babel">
+    // Phone shell (same as main app)
+    const Phone = ({ children }) => {
+      const W = 380, H = 820;
+      return (
+        <div style={{
+          width: W, height: H, borderRadius: 36, overflow: 'hidden',
+          background: T.bg,
+          border: '8px solid #29231d',
+          boxShadow: '0 30px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)',
+          display: 'flex', flexDirection: 'column',
+          fontFamily: T.fontUI, color: T.ink,
+        }}>
+          <StatusBar />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>{children}</div>
+          <NavBar />
+        </div>
+      );
+    };
+
+    const noop = () => {};
+    const F = (Comp, props={}) => (
+      <Phone>
+        <Comp onBack={noop} onClose={noop} onDone={noop} onStart={noop} onEnd={noop}
+          onRewind={noop} onTypeToSpeak={noop} onHistory={noop} onSettings={noop}
+          onOpen={noop} onSounds={noop} onDismiss={noop} onSeeIt={noop} onCatchUp={noop} {...props} />
+      </Phone>
+    );
+
+    // Inline OnbStep (copied from main file — kept self-contained for export)
+    const OnbStep = ({ step }) => {
+      const stepData = [
+        { kicker: 'LIVE TRANSCRIBE', title: <>Every voice.<br/><em style={{ color: T.peach, fontStyle: 'italic' }}>Every sound.</em></>, body: 'Captions in real time, on this phone, for free, forever.', cta: 'Continue' },
+        { kicker: 'PRIVACY', title: <>It all stays<br/><em style={{ color: T.peach, fontStyle: 'italic' }}>here.</em></>, body: 'The model lives in the app. Your conversations never leave your phone — not even to us.', cta: 'Allow microphone' },
+        { kicker: 'HOW IT WORKS', title: <>Hold up.<br/><em style={{ color: T.peach, fontStyle: 'italic' }}>Read along.</em></>, body: 'Set the phone between you and a speaker. Tap start. Captions appear in seconds.', cta: "I'm ready" },
+      ][step];
+      return (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: T.bg, color: T.ink }}>
+          <div style={{ padding: '0 28px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div style={{ marginTop: 32, fontSize: 11, fontWeight: 700, letterSpacing: 2, color: T.peach }}>{stepData.kicker}</div>
+            <div style={{ fontFamily: T.fontDisplay, fontSize: 56, fontWeight: 500, lineHeight: 0.98, letterSpacing: -2, color: T.ink, marginTop: 18 }}>{stepData.title}</div>
+            <div style={{ fontSize: 17, lineHeight: 1.5, color: T.inkSoft, marginTop: 20, maxWidth: 320 }}>{stepData.body}</div>
+            <div style={{ flex: 1 }} />
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 16 }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{ width: i === step ? 24 : 6, height: 6, borderRadius: 3, background: i === step ? T.peach : T.lineHi }} />
+              ))}
+            </div>
+            <PrimaryBtn full>{stepData.cta}</PrimaryBtn>
+            <div style={{ height: 36, marginTop: 10, marginBottom: 16 }} />
+          </div>
+        </div>
+      );
+    };
+
+    const recents = [
+      { title: 'Coffee with Maya', meta: 'Today · 9:33 AM · 51m' },
+      { title: 'Tuesday dinner', meta: 'Yesterday · 1h 23m · 4 voices' },
+      { title: 'At home', meta: 'Mon · smoke alarm detected', urgent: true },
+    ];
+
+    // 16 slides — each a section + label + phone
+    const slides = [
+      { sec: '01 · Onboarding', lbl: 'Step 1 · Every voice', node: <Phone><OnbStep step={0} /></Phone> },
+      { sec: '01 · Onboarding', lbl: 'Step 2 · Privacy',     node: <Phone><OnbStep step={1} /></Phone> },
+      { sec: '01 · Onboarding', lbl: 'Step 3 · How it works', node: <Phone><OnbStep step={2} /></Phone> },
+      { sec: '01b · Model download', lbl: 'Pre-download',     node: F(ModelPrepScreen) },
+      { sec: '01b · Model download', lbl: 'Downloading · 42%', node: F(ModelDownloadingScreen, { pct: 42, mb: 630 }) },
+      { sec: '01b · Model download', lbl: 'Ready',            node: F(ModelReadyScreen) },
+      { sec: '02 · Home',            lbl: 'Home',             node: F(HomeScreen, { recents }) },
+      { sec: '02 · Home',            lbl: 'History',          node: F(HistoryScreen) },
+      { sec: '03 · Live transcription', lbl: '1:1 · Coffee with Maya', node: F(LiveScreen, { mode: '11' }) },
+      { sec: '03 · Live transcription', lbl: 'Group · 4 voices',       node: F(LiveScreen, { mode: 'group' }) },
+      { sec: '04 · Sound alert',     lbl: 'Smoke alarm',      node: F(AlertScreen) },
+      { sec: '05 · Type-to-speak & Rewind', lbl: 'Type to speak',   node: F(TypeToSpeakScreen) },
+      { sec: '05 · Type-to-speak & Rewind', lbl: 'Rewind / catch up', node: F(RewindScreen) },
+      { sec: '06 · Settings & Summary', lbl: 'Settings',           node: F(SettingsScreen) },
+      { sec: '06 · Settings & Summary', lbl: 'Sound recognition',  node: F(SoundSettingsScreen) },
+      { sec: '06 · Settings & Summary', lbl: 'Conversation summary', node: F(SummaryScreen) },
+    ];
+
+    const App = () => {
+      const [idx, setIdx] = React.useState(() => {
+        const v = parseInt(new URLSearchParams(location.search).get('s') || '0', 10);
+        return isNaN(v) ? 0 : Math.max(0, Math.min(v, slides.length - 1));
+      });
+      React.useEffect(() => {
+        const url = new URL(location.href); url.searchParams.set('s', idx); history.replaceState(null, '', url);
+      }, [idx]);
+      const goTo = (i) => setIdx(Math.max(0, Math.min(i, slides.length - 1)));
+      window.goToSlide = goTo;
+
+      // viewport-fit scaling for preview only (not capture; PPTX clears the transform)
+      const wrapRef = React.useRef(null);
+      React.useEffect(() => {
+        const fit = () => {
+          if (!wrapRef.current) return;
+          const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+          wrapRef.current.style.transform = `scale(${s})`;
+        };
+        fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit);
+      }, []);
+
+      return (
+        <>
+          <div ref={wrapRef} className="lt-stage" style={{ width: 1920, height: 1080, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0 }}>
+            {slides.map((sl, i) => (
+              <div key={i} className={'lt-slide' + (i === idx ? ' active' : '')} data-screen-label={sl.lbl}>
+                <div className="lt-section">{sl.sec}</div>
+                {sl.node}
+                <div className="lt-label">{sl.lbl}</div>
+              </div>
+            ))}
+          </div>
+          <div className="lt-nav">
+            <button onClick={() => goTo(idx - 1)}>‹</button>
+            <span className="lt-counter">{idx + 1} / {slides.length}</span>
+            <button onClick={() => goTo(idx + 1)}>›</button>
+          </div>
+        </>
+      );
+    };
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') window.goToSlide?.(parseInt(new URLSearchParams(location.search).get('s') || '0', 10) + 1);
+      if (e.key === 'ArrowLeft') window.goToSlide?.(parseInt(new URLSearchParams(location.search).get('s') || '0', 10) - 1);
+    });
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

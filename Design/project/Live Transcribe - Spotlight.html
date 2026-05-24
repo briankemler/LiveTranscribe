@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Transcribe — Spotlight</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #0e0b08; font-family: -apple-system, system-ui, sans-serif; overflow: hidden; }
+    * { box-sizing: border-box; }
+    button { -webkit-tap-highlight-color: transparent; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="spotlight/spot-tokens.jsx"></script>
+  <script type="text/babel" src="spotlight/spot-ui.jsx"></script>
+  <script type="text/babel" src="spotlight/spot-onboarding.jsx"></script>
+  <script type="text/babel" src="spotlight/spot-live.jsx"></script>
+  <script type="text/babel" src="spotlight/spot-screens.jsx"></script>
+  <script type="text/babel" src="spotlight/spot-model.jsx"></script>
+
+  <script type="text/babel">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "diarization": "off",
+      "textSize": "regular",
+      "speakerColors": true,
+      "showAmbient": true,
+      "accent": "#e89878",
+      "density": "regular",
+      "palette": "warm"
+    }/*EDITMODE-END*/;
+
+    // ─── Palette presets ───────────────────────────────────
+    // Each preset is a partial override of the T token object.
+    const PALETTES = {
+      warm: {
+        bg: '#1a1612', bgSoft: '#241e18', surface: '#2a231d', surfaceHi: '#332b23',
+        surfaceLo: 'rgba(255,255,255,0.04)',
+        ink: '#f5ede0', inkSoft: 'rgba(245,237,224,0.72)', inkMute: 'rgba(245,237,224,0.45)', inkDim: 'rgba(245,237,224,0.28)',
+        line: 'rgba(245,237,224,0.08)', lineHi: 'rgba(245,237,224,0.16)',
+        peach: '#e89878', peachDeep: '#c96442',
+        spkA: '#e89878', spkB: '#7ab8a4', spkC: '#e8b85a', spkD: '#b89cd8', spkE: '#e87878',
+        alert: '#e85a45', social: '#7ab8a4',
+      },
+      // Mono — clean, cool, modern, minimal. Near-black on near-white grays, single icy-blue accent.
+      midnight: {
+        bg: '#0e0f11', bgSoft: '#16181b', surface: '#1c1f23', surfaceHi: '#262a30',
+        surfaceLo: 'rgba(255,255,255,0.03)',
+        ink: '#f4f5f7', inkSoft: 'rgba(244,245,247,0.7)', inkMute: 'rgba(244,245,247,0.42)', inkDim: 'rgba(244,245,247,0.24)',
+        line: 'rgba(244,245,247,0.07)', lineHi: 'rgba(244,245,247,0.14)',
+        peach: '#5b8def', peachDeep: '#3a6fd1',
+        spkA: '#5b8def', spkB: '#a8b3c2', spkC: '#cfd4dc', spkD: '#8a93a3', spkE: '#e0e4ea',
+        alert: '#ff6b6b', social: '#a8b3c2',
+      },
+      // Paper + ink: light mode, warm cream paper, deep ink, single coral accent
+      paper: {
+        bg: '#f7f2ea', bgSoft: '#efe8dc', surface: '#fbf6ee', surfaceHi: '#ffffff',
+        surfaceLo: 'rgba(40,34,28,0.04)',
+        ink: '#1f1a14', inkSoft: 'rgba(31,26,20,0.7)', inkMute: 'rgba(31,26,20,0.5)', inkDim: 'rgba(31,26,20,0.3)',
+        line: 'rgba(31,26,20,0.08)', lineHi: 'rgba(31,26,20,0.16)',
+        peach: '#d6553e', peachDeep: '#b53a26',
+        spkA: '#d6553e', spkB: '#3a7a6c', spkC: '#a87208', spkD: '#6a4eaa', spkE: '#a83a3a',
+        alert: '#c93020', social: '#3a7a6c',
+      },
+    };
+
+    // Make tweaks globally readable by screens; bump a tick so they re-render.
+    window.__SPOT_TWEAKS = window.__SPOT_TWEAKS || { ...TWEAK_DEFAULTS };
+    const applyTweaks = (t) => {
+      window.__SPOT_TWEAKS = t;
+      if (!window.T) return;
+      // Apply palette preset
+      const p = PALETTES[t.palette] || PALETTES.warm;
+      Object.assign(T, p);
+      // Recompute alpha-derived tokens from accent
+      const hex = (T.peach || '#e89878').replace('#', '');
+      T.peachSoft = '#' + hex + '2e';
+      T.peachGlow = '#' + hex + '59';
+      const ahex = T.alert.replace('#','');
+      T.alertSoft = '#' + ahex + '38';
+      const shex = (T.social || '#7ab8a4').replace('#','');
+      T.socialSoft = '#' + shex + '2e';
+      T.ambient = T.inkMute;
+      T.ambientSoft = p.bg === '#f7f2ea' ? 'rgba(31,26,20,0.06)' : 'rgba(255,255,255,0.06)';
+      document.body.style.background = p.bg === '#f7f2ea' ? '#e8dfce' : '#0e0b08';
+    };
+    applyTweaks(window.__SPOT_TWEAKS);
+
+    // Phone shell — dark
+    const Phone = ({ children, label }) => {
+      const W = 380, H = 820;
+      return (
+        <div style={{
+          width: W, height: H, borderRadius: 36, overflow: 'hidden',
+          background: T.bg,
+          border: '8px solid #29231d',
+          boxShadow: '0 30px 80px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)',
+          display: 'flex', flexDirection: 'column',
+          fontFamily: T.fontUI, color: T.ink,
+        }}>
+          <StatusBar />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>{children}</div>
+          <NavBar />
+        </div>
+      );
+    };
+
+    // Frame each screen with a phone shell that ignores onBack/onClose etc.
+    const noop = () => {};
+    const F = (Comp, props={}) => <Phone><Comp onBack={noop} onClose={noop} onDone={noop} onStart={noop} onEnd={noop} onRewind={noop} onTypeToSpeak={noop} onHistory={noop} onSettings={noop} onOpen={noop} onSounds={noop} onDismiss={noop} onSeeIt={noop} onCatchUp={noop} {...props} /></Phone>;
+
+    // Onboarding wrapped to render specific step
+    const OnbStep = ({ step }) => {
+      const Wrapper = () => {
+        const [s, setS] = React.useState(step);
+        React.useEffect(() => setS(step), [step]);
+        // Hack: render OnboardingScreen with internal step locked via a key trick.
+        // OnboardingScreen owns its step, so we rebuild it inline:
+        const stepData = [
+          { kicker: 'LIVE TRANSCRIBE', title: <>Every voice.<br/><em style={{ color: T.peach, fontStyle: 'italic' }}>Every sound.</em></>, body: 'Captions in real time, on this phone, for free, forever.', cta: 'Continue', visual: 'hero' },
+          { kicker: 'PRIVACY', title: <>It all stays<br/><em style={{ color: T.peach, fontStyle: 'italic' }}>here.</em></>, body: 'The model lives in the app. Your conversations never leave your phone — not even to us.', cta: 'Allow microphone', visual: 'privacy' },
+          { kicker: 'HOW IT WORKS', title: <>Hold up.<br/><em style={{ color: T.peach, fontStyle: 'italic' }}>Read along.</em></>, body: 'Set the phone between you and a speaker. Tap start. Captions appear in seconds.', cta: "I'm ready", visual: 'preview' },
+        ][step];
+        return (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: T.bg, color: T.ink }}>
+            <div style={{ padding: '0 28px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+              <div style={{ marginTop: 32, fontSize: 11, fontWeight: 700, letterSpacing: 2, color: T.peach }}>{stepData.kicker}</div>
+              <div style={{ fontFamily: T.fontDisplay, fontSize: 56, fontWeight: 500, lineHeight: 0.98, letterSpacing: -2, color: T.ink, marginTop: 18 }}>{stepData.title}</div>
+              <div style={{ fontSize: 17, lineHeight: 1.5, color: T.inkSoft, marginTop: 20, maxWidth: 320 }}>{stepData.body}</div>
+
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '28px 0' }}>
+                {stepData.visual === 'hero' && (
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ padding: 16, borderRadius: 16, background: T.surface, borderLeft: `3px solid ${T.spkB}`, opacity: 0.55 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: T.spkB, letterSpacing: 0.5, textTransform: 'uppercase' }}>Maya</div>
+                      <div style={{ fontSize: 14, color: T.inkSoft, marginTop: 4 }}>I had the most ridiculous run this morning.</div>
+                    </div>
+                    <div style={{ padding: 16, borderRadius: 16, background: T.surfaceHi, borderLeft: `3px solid ${T.spkB}`, boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: T.spkB, letterSpacing: 0.5, textTransform: 'uppercase' }}>Maya · NOW</div>
+                      <div style={{ fontFamily: T.fontDisplay, fontSize: 22, fontWeight: 500, lineHeight: 1.25, color: T.ink, marginTop: 6, letterSpacing: -0.3 }}>
+                        A goose chased me through the park.
+                      </div>
+                    </div>
+                    <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 999, background: T.peachSoft, color: T.peach, fontSize: 11, fontWeight: 600 }}>
+                      <SpIcon name="volume" size={11} color={T.peach} /> laughter
+                    </div>
+                  </div>
+                )}
+                {stepData.visual === 'privacy' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+                    <div style={{ width: 120, height: 120, borderRadius: 60, background: T.surface, border: `1px solid ${T.lineHi}`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                      <SpIcon name="lock" size={48} color={T.peach} strokeWidth={1.6} />
+                      <div style={{ position: 'absolute', inset: -10, borderRadius: 70, border: `1px solid ${T.peachSoft}` }} />
+                      <div style={{ position: 'absolute', inset: -22, borderRadius: 80, border: `1px solid ${T.peachSoft}`, opacity: 0.5 }} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+                      {[['Audio processed on-device','cpu'],['Works offline, no account','wind'],['You choose what to save','star']].map(([t, ic]) => (
+                        <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: T.inkSoft }}>
+                          <SpIcon name={ic} size={14} color={T.peach} />{t}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {stepData.visual === 'preview' && (
+                  <div style={{ width: '100%', padding: '20px 0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+                      <div className="sp-pulse" style={{ width: 64, height: 64, borderRadius: 32, background: T.peach, color: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 0 8px ${T.peachSoft}, 0 0 0 16px rgba(232,152,120,0.08)` }}>
+                        <SpIcon name="mic" size={28} color={T.bg} strokeWidth={2.2} />
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'center', fontSize: 12, color: T.inkMute, fontWeight: 500 }}>tap and start talking</div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 16 }}>
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{ width: i === step ? 24 : 6, height: 6, borderRadius: 3, background: i === step ? T.peach : T.lineHi }} />
+                ))}
+              </div>
+
+              <PrimaryBtn full>{stepData.cta}</PrimaryBtn>
+              <div style={{ height: 36, marginTop: 10, marginBottom: 16 }} />
+            </div>
+          </div>
+        );
+      };
+      return <Wrapper />;
+    };
+
+    const recents = [
+      { title: 'Coffee with Maya', meta: 'Today · 9:33 AM · 51m' },
+      { title: 'Tuesday dinner', meta: 'Yesterday · 1h 23m · 4 voices' },
+      { title: 'At home', meta: 'Mon · smoke alarm detected', urgent: true },
+    ];
+
+    const App = () => {
+      const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const PHW = 380, PHH = 820;
+
+      // Push tweaks to global on every change so screens see them
+      React.useEffect(() => { applyTweaks(tweaks); }, [tweaks]);
+      // Use the tweaks object identity as a key to force re-render of artboards
+      const tk = JSON.stringify(tweaks);
+
+      return (
+        <>
+          <TweaksPanel>
+            <TweakSection label="Speakers" />
+            <TweakRadio label="Diarization"
+              value={tweaks.diarization}
+              options={['auto', 'smart', 'off']}
+              onChange={(v) => setTweak('diarization', v)} />
+            <TweakToggle label="Show speaker colors"
+              value={tweaks.speakerColors}
+              onChange={(v) => setTweak('speakerColors', v)} />
+
+            <TweakSection label="Captions" />
+            <TweakRadio label="Text size"
+              value={tweaks.textSize}
+              options={['small', 'regular', 'large', 'huge']}
+              onChange={(v) => setTweak('textSize', v)} />
+            <TweakRadio label="Density"
+              value={tweaks.density}
+              options={['cozy', 'regular', 'roomy']}
+              onChange={(v) => setTweak('density', v)} />
+            <TweakToggle label="Show ambient sounds"
+              value={tweaks.showAmbient}
+              onChange={(v) => setTweak('showAmbient', v)} />
+
+            <TweakSection label="Palette" />
+            <TweakRadio label="Color scheme"
+              value={tweaks.palette}
+              options={['warm', 'midnight', 'paper']}
+              onChange={(v) => {
+                const acc = v === 'warm' ? '#e89878' : v === 'midnight' ? '#5b8def' : '#d6553e';
+                setTweak({ palette: v, accent: acc });
+              }} />
+            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+              {[
+                { name: 'warm', sw: ['#e89878', '#1a1612', '#f5ede0'] },
+                { name: 'midnight', sw: ['#5b8def', '#0e0f11', '#f4f5f7'] },
+                { name: 'paper', sw: ['#d6553e', '#f7f2ea', '#1f1a14'] },
+              ].map(p => (
+                <button key={p.name}
+                  onClick={() => setTweak({ palette: p.name, accent: p.sw[0] })}
+                  style={{
+                    flex: 1, padding: 0, height: 36, borderRadius: 8,
+                    border: tweaks.palette === p.name ? '2px solid #29261b' : '1px solid rgba(0,0,0,0.15)',
+                    background: 'transparent', cursor: 'pointer', display: 'flex', overflow: 'hidden',
+                  }}>
+                  {p.sw.map((c, i) => <div key={i} style={{ flex: 1, background: c }} />)}
+                </button>
+              ))}
+            </div>
+          </TweaksPanel>
+
+          <DesignCanvas key={tk}>
+            <DCSection id="overview" title="Spotlight" subtitle="Speaker-stage direction · expanded · dark-first · warm peach accent">
+              <DCPostIt top={20} left={40} rotate={-2} width={260}>
+                Direction C — pushed deeper. Dark-first. Massive Fraunces transcript on the active speaker. Inline ambient sounds. Pull-up history sheet. Sound alerts as full-bleed hero card. Type-to-speak, rewind, summary, settings.
+              </DCPostIt>
+            </DCSection>
+
+            <DCSection id="onb" title="01 · Onboarding" subtitle="Three-step intro: hero · privacy · how-it-works">
+              <DCArtboard id="onb1" label="Step 1 · Every voice" width={PHW} height={PHH}><Phone><OnbStep step={0} /></Phone></DCArtboard>
+              <DCArtboard id="onb2" label="Step 2 · Privacy" width={PHW} height={PHH}><Phone><OnbStep step={1} /></Phone></DCArtboard>
+              <DCArtboard id="onb3" label="Step 3 · How it works" width={PHW} height={PHH}><Phone><OnbStep step={2} /></Phone></DCArtboard>
+            </DCSection>
+
+            <DCSection id="dl" title="01b · Model download" subtitle="The first-launch cliff — set expectations, teach while waiting, celebrate readiness">
+              <DCArtboard id="dl1" label="Pre-download · expectations" width={PHW} height={PHH}>{F(ModelPrepScreen)}</DCArtboard>
+              <DCArtboard id="dl2" label="Downloading · 42%" width={PHW} height={PHH}>{F(ModelDownloadingScreen, { pct: 42, mb: 630 })}</DCArtboard>
+              <DCArtboard id="dl3" label="Ready" width={PHW} height={PHH}>{F(ModelReadyScreen)}</DCArtboard>
+            </DCSection>
+
+            <DCSection id="home" title="02 · Home" subtitle="Start screen · recents · mode picker">
+              <DCArtboard id="home1" label="Home" width={PHW} height={PHH}>{F(HomeScreen, { recents })}</DCArtboard>
+              <DCArtboard id="hist1" label="History" width={PHW} height={PHH}>{F(HistoryScreen)}</DCArtboard>
+            </DCSection>
+
+            <DCSection id="live" title="03 · Live transcription" subtitle="Spotlight on active speaker · pull-up history">
+              <DCArtboard id="live11" label="1:1 · Coffee with Maya" width={PHW} height={PHH}>{F(LiveScreen, { mode: '11' })}</DCArtboard>
+              <DCArtboard id="livegrp" label="Group · 4 voices" width={PHW} height={PHH}>{F(LiveScreen, { mode: 'group' })}</DCArtboard>
+            </DCSection>
+
+            <DCSection id="alert" title="04 · Sound alert" subtitle="Smoke alarm — full-bleed hero, transcript context underneath">
+              <DCArtboard id="al1" label="Smoke alarm" width={PHW} height={PHH}>{F(AlertScreen)}</DCArtboard>
+            </DCSection>
+
+            <DCSection id="speak" title="05 · Type-to-speak & Rewind" subtitle="Reply by typing · scrub back to catch up">
+              <DCArtboard id="t2s" label="Type to speak" width={PHW} height={PHH}>{F(TypeToSpeakScreen)}</DCArtboard>
+              <DCArtboard id="rw" label="Rewind / catch up" width={PHW} height={PHH}>{F(RewindScreen)}</DCArtboard>
+            </DCSection>
+
+            <DCSection id="settings" title="06 · Settings & Summary" subtitle="Configure sound recognition · end-of-call recap">
+              <DCArtboard id="set1" label="Settings" width={PHW} height={PHH}>{F(SettingsScreen)}</DCArtboard>
+              <DCArtboard id="set2" label="Sound recognition" width={PHW} height={PHH}>{F(SoundSettingsScreen)}</DCArtboard>
+              <DCArtboard id="sum1" label="Conversation summary" width={PHW} height={PHH}>{F(SummaryScreen)}</DCArtboard>
+            </DCSection>
+          </DesignCanvas>
+        </>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

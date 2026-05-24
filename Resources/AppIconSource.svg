@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Live Transcribe V6 — Gradient + Glow. Ported from icon-export/ic_launcher_full.svg
+     with the Android squircle clip removed (iOS applies its own mask). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e89878"/>
+      <stop offset="100%" stop-color="#c96442"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" fill="#0e0b08"/>
+  <g transform="translate(76,76) scale(3.6)">
+    <path d="M14 22 Q14 14 22 14 H78 Q86 14 86 22 V60 Q86 68 78 68 H44 L28 82 V68 H22 Q14 68 14 60 Z" fill="rgba(232,152,120,0.45)" filter="url(#glow)"/>
+    <path d="M14 22 Q14 14 22 14 H78 Q86 14 86 22 V60 Q86 68 78 68 H44 L28 82 V68 H22 Q14 68 14 60 Z" fill="url(#g)"/>
+    <rect x="26" y="30" width="48" height="6" rx="3" fill="#1a1612"/>
+    <rect x="26" y="42" width="36" height="6" rx="3" fill="#1a1612"/>
+    <rect x="26" y="54" width="22" height="6" rx="3" fill="#1a1612"/>
+  </g>
+</svg>
