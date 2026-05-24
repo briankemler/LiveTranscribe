@@ -28,48 +28,70 @@ Alternative subtitles to A/B if 23 feels generic:
 
 ## Promotional Text (170 char max, updatable any time)
 
+**RECOMMENDED (heritage hook):**
+
+```
+Free, private, on-device captions — by a PM behind Android's Live Transcribe. 99 languages, translate to English, ambient-sound alerts. No ads, no cloud, no sign-up.
+```
+(167 chars)
+
+Alternatives:
+
+```
+Truly free, fully private captions that run on your iPhone. 99 languages, translate to English, 300 ambient sounds. Accessibility shouldn't cost money or privacy.
+```
+(162 chars — mission angle)
+
 ```
 Captions in real time, on your phone. No accounts, no cloud, no tracking. Translate other languages to English on the fly. Built for the deaf and hard-of-hearing.
 ```
-(167 chars)
+(167 chars — original, feature angle)
+
+NOTE: Promotional Text is updatable any time without re-review, so it's the right place for
+timely messaging — but keep "beta" / "DM me for early access" wording OUT of it and the
+Description (Apple guideline 2.2 rejects beta/demo framing on the public store). Save that for
+TestFlight "What to Test".
 
 ## Description (4000 char max)
 
 ```
-Earshot turns your iPhone into a real-time caption machine — for conversations, lectures, doctor visits, anywhere you want to read along.
+Earshot is real-time, on-device captioning for iPhone — for conversations, lectures, doctor visits, anywhere you want to read what's being said.
 
-Everything runs on your phone. The Whisper Small speech-recognition model and Apple's sound classifier live inside the app. Your audio is never sent to a server, never logged, never stored. There are no accounts, no analytics, no ads.
+A bit of backstory. In 2019, a team at Google spent nine months building Android's Live Transcribe — a free app that captions speech and ambient sound in real time, inspired by a Deaf researcher who'd spent his career on captioning. It launched at Google I/O, became one of the most-adopted accessibility apps Google ever shipped, and came preloaded on billions of Android devices. I was one of two product managers on it.
+
+Google never shipped Live Transcribe on iOS, and nothing has truly filled the gap. There are lookalikes, but few are genuinely free, private, and multilingual all at once — many charge, upsell, or send your audio to the cloud. Having a disability shouldn't cost you money or your privacy. So I built Earshot.
+
+• Free — no sign-up, no sign-in, no ads, no upsells.
+• Private — everything runs on your device. The only network call is to download and update the local speech model (OpenAI's Whisper).
+• Offline — works with no Wi-Fi or cellular connection.
+• Multilingual — 99 languages, and it can translate any of them into English.
+• Ambient-sound aware — recognizes hundreds of environmental sounds, with full-screen alerts for urgent ones: smoke alarm, carbon monoxide, doorbell, crying baby, phone ringing, sirens.
+
+All speech recognition runs locally with OpenAI's Whisper. Word Error Rate — the standard accuracy benchmark — is about 8.6% for the "small" English model; it runs higher for other languages, especially long-tail ones. Earshot also ships the tiny and base models, which are blazingly fast and work well on older iPhones — in testing they held up on accuracy too.
+
+Accessibility tools shouldn't themselves be inaccessible. Free should mean free. Private should mean private. That's the standard the original Live Transcribe set on Android, and iOS users deserve the same.
 
 WHAT IT DOES
-• Real-time captions in a clean, focused screen. Tap the cog for quick text-size, vibration, and ambient-sound options.
-• Translate non-English speech to English on the fly. Whisper supports 99 source languages.
-• Smoke-alarm, doorbell, baby-crying, carbon-monoxide, phone-ringing, and emergency-siren alerts. Full-screen with strong haptic.
-• Ambient sound tags (laughter, music, water running, dog barking, and 25+ more) shown in the corner when you want them.
-• Save transcripts on your device. Star the ones you want to find later. Search, filter by 1:1 or group, by alerts, by starred.
-• Share any transcript as plain text — Notes, Files, Mail, Messages, anything that accepts text. The share never leaves your device unless you send it.
-• Full Dynamic Type support up to AX5. VoiceOver labels on every interactive element. Reduce-Motion honored.
+• Real-time captions in a clean, focused screen, plus a chat-style "feed" layout. Tap the cog for text size, vibration, and ambient-sound options.
+• Translate non-English speech to English on the fly.
+• Full-screen urgent-sound alerts with strong haptics; ambient-sound tags shown in the corner when you want them.
+• Save transcripts on your device as readable documents. Star the ones to keep, filter by 1:1 or group, by alerts, by starred.
+• Share any transcript as plain text — it never leaves your device unless you send it.
+• Full Dynamic Type up to AX5, VoiceOver labels on every control, Reduce Motion honored.
 
 WHO IT'S FOR
-Earshot was built for the deaf and hard-of-hearing community as a practical, private alternative to cloud-based captioning. It is also useful for:
-• Anyone in a loud environment (cafés, conferences, noisy kitchens) who wants visual reinforcement of conversations.
-• Language learners who want translations of native-speaker dialogue.
-• People who want to skim or save what someone said without explaining "I'm recording you."
+Built for the deaf and hard-of-hearing community as a private alternative to cloud captioning. Also useful in loud environments, for language learners, and for anyone who wants to read or save what was said.
 
 PRIVACY
-The app's headline guarantee: audio never leaves your device. The Whisper model itself downloads once from Hugging Face on first launch (~244 MB) — that download is the only network request the app makes. Everything after that is offline.
-
-Full privacy policy in Settings → About → Privacy Policy, also published at briankemler.github.io/LiveTranscribe/privacy.
-
-PERMISSIONS
-Microphone — required for transcription and sound recognition. You can grant or revoke at any time in iOS Settings.
+Audio never leaves your device. No accounts, no analytics, no ads, no tracking. The Whisper model downloads once on first launch (~244 MB) — the only network request the app makes. Full policy at briankemler.github.io/LiveTranscribe/privacy.
 
 REQUIREMENTS
-iPhone running iOS 17 or later. iPhone 12 or newer recommended for real-time performance. ~250 MB free disk space for the speech model.
+iPhone on iOS 17 or later. Works offline after the one-time model download.
 
 CONTACT
 brian.kemler@gmail.com
 ```
-(~1900 chars; room to grow)
+(~3235 chars; room to spare under the 4000 limit)
 
 ## Keywords (100 char max, comma-separated)
 
