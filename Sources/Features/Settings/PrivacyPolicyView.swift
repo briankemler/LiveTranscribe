@@ -65,7 +65,7 @@ struct PrivacyPolicyView: View {
                     }
 
                     section("Online version") {
-                        Text("This same policy is published at briankemler.com/earshot/privacy. The in-app and online versions are kept in sync.")
+                        Text("This same policy is published at briankemler.github.io/LiveTranscribe/privacy. The in-app and online versions are kept in sync.")
                     }
                 }
                 .padding(.horizontal, 20)

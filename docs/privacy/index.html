@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — Earshot</title>
+  <meta name="description" content="Earshot processes audio entirely on your iPhone. No accounts, no analytics, no tracking. Full privacy policy.">
+  <meta name="robots" content="index, follow">
+  <style>
+    :root {
+      --bg: #1a1614;
+      --surface: #241e1b;
+      --ink: #f3ece6;
+      --ink-soft: #cbbfb6;
+      --ink-mute: #8a7f76;
+      --accent: #e08a5f;
+      --line: #342c27;
+      --max: 720px;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink-soft);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 17px;
+      line-height: 1.6;
+      padding: 0 20px;
+    }
+    main { max-width: var(--max); margin: 0 auto; padding: 56px 0 80px; }
+    h1 {
+      font-family: ui-serif, Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      font-size: 2.2rem;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      margin: 0 0 6px;
+    }
+    .effective { color: var(--ink-mute); font-size: 0.85rem; margin: 0 0 36px; }
+    h2 {
+      color: var(--accent);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin: 34px 0 10px;
+    }
+    p { margin: 0 0 10px; }
+    ul { margin: 0 0 10px; padding-left: 1.1em; }
+    li { margin: 0 0 6px; }
+    a { color: var(--accent); }
+    .brand {
+      color: var(--accent);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin: 0 0 28px;
+    }
+    footer {
+      margin-top: 48px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--ink-mute);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="brand">Earshot</p>
+    <h1>Privacy Policy</h1>
+    <p class="effective">Effective 2026-05-16.</p>
+
+    <h2>The short version</h2>
+    <p>Earshot processes audio entirely on your iPhone. We never collect or transmit your speech, your transcripts, or anything else that identifies you. Anything the app remembers — your transcripts, settings, conversation history — stays on this device. No accounts, no analytics, no ads.</p>
+
+    <h2>What we process and where</h2>
+    <ul>
+      <li>Microphone audio is captured only while you are on a Live screen. It is fed directly to an on-device transcription model (OpenAI Whisper Small, running locally via the WhisperKit framework) and an on-device sound classifier (Apple SoundAnalysis). Raw audio buffers are processed and discarded — they are never written to disk.</li>
+      <li>Transcripts are saved locally on this device using Apple's SwiftData framework. They show up under Settings → Transcripts and in History, and you can delete them at any time by swiping left on a transcript. Transcripts never leave the device unless you explicitly share one via the system share sheet (which sends plain text to the app you choose — Notes, Mail, Messages, etc.).</li>
+      <li>Sound detections (e.g., smoke alarm) are stored with the transcript they occurred during, only for display in that conversation's summary.</li>
+      <li>Your settings (palette, text size, armed sounds, etc.) are stored locally in iOS UserDefaults. They stay on this device.</li>
+    </ul>
+
+    <h2>Network use</h2>
+    <p>Earshot makes a single network request on first launch (or when you switch transcription models) to download the Whisper model from Hugging Face (huggingface.co). That download is the only data the app sends or receives over the network. After the model is on your device, the app works fully offline. We do not contact any analytics, advertising, or telemetry servers — there are none.</p>
+
+    <h2>What we do not do</h2>
+    <ul>
+      <li>No accounts or sign-in.</li>
+      <li>No advertising, no advertising identifiers, no cross-app tracking.</li>
+      <li>No analytics SDKs, no crash-reporting SDKs.</li>
+      <li>No selling, sharing, or otherwise transferring personal information to third parties — we have none to share.</li>
+    </ul>
+
+    <h2>Permissions</h2>
+    <p>Microphone access is required for transcription and sound recognition. You can grant, revoke, or check it at any time in iOS Settings → Privacy &amp; Security → Microphone → Earshot.</p>
+
+    <h2>Children</h2>
+    <p>Earshot is suitable for general audiences. Because we do not collect personal information from anyone, we do not knowingly collect personal information from children under 13 in the United States, or equivalent ages in other jurisdictions.</p>
+
+    <h2>Changes</h2>
+    <p>If we ever change how the app handles data, this page will be updated and the effective date above will change.</p>
+
+    <h2>Contact</h2>
+    <p>Questions, requests, or concerns: <a href="mailto:brian.kemler@gmail.com">brian.kemler@gmail.com</a></p>
+
+    <footer>
+      Earshot — on-device live captions. This policy mirrors the in-app version (Settings → About → Privacy Policy).
+    </footer>
+  </main>
+</body>
+</html>

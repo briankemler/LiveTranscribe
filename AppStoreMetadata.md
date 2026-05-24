@@ -7,9 +7,11 @@ Paste these fields into App Store Connect → My Apps → Earshot → App Store 
 ## Name (30 char max)
 
 ```
-Earshot
+Earshot Live Transcription
 ```
-(7 chars)
+(26 chars — the exact name registered in App Store Connect; plain "Earshot" was taken.
+NOTE: the App Store **listing name** is "Earshot Live Transcription", but the Home-screen
+icon label, set by `CFBundleDisplayName`, is just "Earshot" — these are allowed to differ.)
 
 ## Subtitle (30 char max)
 
@@ -56,7 +58,7 @@ Earshot was built for the deaf and hard-of-hearing community as a practical, pri
 PRIVACY
 The app's headline guarantee: audio never leaves your device. The Whisper model itself downloads once from Hugging Face on first launch (~244 MB) — that download is the only network request the app makes. Everything after that is offline.
 
-Full privacy policy in Settings → About → Privacy Policy, also published at briankemler.com/earshot/privacy.
+Full privacy policy in Settings → About → Privacy Policy, also published at briankemler.github.io/LiveTranscribe/privacy.
 
 PERMISSIONS
 Microphone — required for transcription and sound recognition. You can grant or revoke at any time in iOS Settings.
@@ -71,24 +73,38 @@ brian.kemler@gmail.com
 
 ## Keywords (100 char max, comma-separated)
 
-```
-captions,transcribe,hearing,deaf,accessibility,subtitles,speech,offline,private,live,whisper,sound
-```
-(99 chars)
-
-Alternative set that swaps one "transcribe"-family term for "translate" (the app name is "Earshot", so there's no repetition penalty — but "translate" surfaces the on-the-fly translation feature):
+**RECOMMENDED — use this set:**
 
 ```
-captions,hearing,deaf,accessibility,subtitles,speech,offline,private,live,whisper,sound,translate
+hearing,deaf,accessibility,subtitles,speech,offline,private,translate,dictation,whisper,sound
 ```
+(93 chars)
+
+Why this set: the App Store already indexes the app **Name** ("Earshot Live Transcription")
+and **Subtitle** ("On-device live captions"), so anything already in those is wasted in the
+keyword field. That rules out `earshot`, `live`, `transcription`, `transcribe` (same stem as
+"transcription"), `captions`, and `on-device` — all already searchable. This set spends the
+100 chars on terms that AREN'T in the name/subtitle: the audience (`hearing`, `deaf`,
+`accessibility`), the feature surface (`subtitles`, `speech`, `translate`, `dictation`,
+`sound`), the privacy angle (`offline`, `private`), and the tech (`whisper`). Don't add spaces
+after commas — Apple counts each space against your 100.
 
 ## Support URL
 
 ```
-https://briankemler.com/earshot/privacy
+https://briankemler.github.io/LiveTranscribe/privacy/
 ```
 
-(Until a dedicated /earshot/support page exists. The privacy policy includes the contact email so a support visitor can reach us. Could add `briankemler.com/earshot` as a landing in a future update.)
+(Hosted on GitHub Pages from the `docs/` folder of the briankemler/LiveTranscribe repo. The
+landing page at `https://briankemler.github.io/LiveTranscribe/` also works as a Support URL —
+it carries the contact email and links to the policy. Must be live before submitting for
+review: create the repo, push, enable Pages.)
+
+**App Privacy Policy URL field** (App Information → also required separately from Support URL):
+
+```
+https://briankemler.github.io/LiveTranscribe/privacy/
+```
 
 ## Marketing URL (optional)
 
