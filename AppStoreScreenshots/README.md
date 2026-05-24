@@ -1,16 +1,24 @@
 # App Store screenshots — Earshot
 
-Two size sets, one per App Store Connect upload slot. Upload the folder that matches the slot
-the app's listing shows:
+One folder per App Store Connect upload slot. Each holds the same 8 screens (below), all
+**native captures at the exact accepted resolution** — no rescaling, so text stays sharp.
 
-| Folder        | Pixels        | Device captured on        | App Store Connect slot |
-|---------------|---------------|---------------------------|------------------------|
-| `6.9-inch/`   | 1320 × 2868   | iPhone 17 Pro Max (iOS 26)| **6.9" Display** |
-| `6.5-inch/`   | 1242 × 2688   | iPhone 11 Pro Max (iOS 18)| **6.5" Display** (accepts 1242×2688 or 1284×2778) |
+| Folder        | Pixels      | Device captured on            | App Store Connect slot |
+|---------------|-------------|-------------------------------|------------------------|
+| `6.9-inch/`   | 1320 × 2868 | iPhone 17 Pro Max (iOS 26)    | **6.9" Display** |
+| `6.5-inch/`   | 1242 × 2688 | iPhone 11 Pro Max (iOS 18)    | **6.5" Display** |
+| `6.3-inch/`   | 1206 × 2622 | iPhone 16 Pro (iOS 18)        | **6.3" Display** |
+| `6.1-inch/`   | 1179 × 2556 | iPhone 16 (iOS 18)            | **6.1" Display** |
+| `4.7-inch/`   |  750 × 1334 | iPhone SE 3rd gen (iOS 18)    | **4.7" Display** |
 
-Each folder has the same 8 screens (below). If the listing only exposes one slot, use that
-folder; if it exposes both, upload both. Both are native captures at the exact accepted
-resolution — no rescaling — so text stays sharp.
+**You only NEED the largest (6.9").** Every other slot is optional — if left empty, Apple
+auto-scales your 6.9" screenshots to fill it. These extra folders are provided for pixel-perfect
+coverage if you'd rather not rely on Apple's scaling.
+
+**Slots deliberately NOT provided — 5.5", 4", 3.5":** those are iPhone 8 Plus / SE-1 / 4s-era
+devices that can't run iOS 17 (the app's minimum), so the app can't launch on them to capture
+natively, and down-scaling distorts (they're 16:9 / 4:3, not the tall modern aspect). Leave
+those slots empty; Apple scales the larger screenshots for them.
 
 ## What's here
 
