@@ -151,28 +151,53 @@ The App Store age questionnaire — recommended answers:
 
 ## App Review Information
 
-Notes for the reviewer — paste into App Review → Notes:
+Notes for the reviewer — paste into App Review → Notes (plain text; ~3,536 chars, under the
+4,000 limit). Written to preempt the likely rejection triggers: the first-launch network
+download, the Google/"Live Transcribe" references, and the safety-sound feature.
 
 ```
-Earshot processes audio entirely on-device using:
-• OpenAI Whisper Small (speech recognition) via the WhisperKit framework (MIT, github.com/argmaxinc/WhisperKit)
-• Apple SoundAnalysis (urgent and ambient sound classification, built-in iOS framework)
+ABOUT EARSHOT
+Earshot is a real-time, on-device live-captioning and sound-recognition app for the deaf and hard-of-hearing (and anyone who wants to read along). It captions nearby speech, can translate 99 languages into English, and recognizes environmental sounds (e.g., smoke alarm, doorbell) with on-screen alerts.
 
-On first launch, the app downloads the Whisper model (~244 MB) from Hugging Face. This is the only network request the app makes. After download, the app works fully offline.
+NO ACCOUNT OR LOGIN NEEDED
+There is no sign-in, no account, and no paywall — just launch and use. The app is free with no in-app purchases, so there is nothing to provide a demo account for.
 
-The app requests microphone permission with the description "Earshot uses the microphone on this device to caption nearby speech and recognize sounds. Audio is processed entirely on-device and never leaves your phone."
+ALL PROCESSING IS ON-DEVICE
+- Speech recognition: OpenAI Whisper, run locally via the open-source WhisperKit framework (MIT, github.com/argmaxinc/WhisperKit).
+- Sound classification: Apple's built-in SoundAnalysis framework (SNClassifySoundRequest, classifierIdentifier .version1).
+There is no server-side component. Audio is processed in memory and never written to disk or transmitted.
 
-No login required. No analytics. The app has no server-side component.
+THE ONE NETWORK REQUEST (please note)
+On first launch — and only then — the app downloads the Whisper speech model (~244 MB) from Hugging Face (huggingface.co). This is the single network request the app makes. It needs Wi-Fi or cellular and can take a minute or two on first run. After the model is cached, the app works fully offline. A "Downloading on-device model…" progress screen on first launch is expected.
 
-PrivacyInfo.xcprivacy is bundled and declares the required-reason API usage.
+MICROPHONE PERMISSION
+Requested with: "Earshot uses the microphone on this device to caption nearby speech and recognize sounds. Audio is processed entirely on-device and never leaves your phone." Required for captioning and sound recognition; if denied, the app degrades gracefully and points the user to Settings.
 
-To test:
-1. Allow microphone permission on first run.
-2. Wait for the Whisper Small model to download (~244 MB; needs Wi-Fi or cellular).
-3. From Home, tap "Start listening" to start a captioning session.
-4. Speak nearby — captions appear in real time.
-5. Settings → Sounds → Sound detection lets you arm urgent sounds.
-6. Settings → Captions → Language → Output toggles English-translation mode.
+HOW TO TEST
+1. Launch the app and complete the brief onboarding; tap "Allow microphone" when prompted.
+2. On first launch, wait for the Whisper model to finish downloading (needs a network connection; ~244 MB).
+3. From Home, tap "Start listening."
+4. Speak near the device — captions appear in real time. Please test on a physical device: the iOS Simulator does not capture microphone input, so captions will not populate there.
+5. Optional: Settings > Captions > Language > Output toggles translate-to-English.
+6. Optional: Settings > Sounds arms urgent-sound alerts (e.g., smoke alarm).
+
+APP NAME
+The App Store listing name is "Earshot Live Transcription." The Home-screen icon label (CFBundleDisplayName) is the shorter "Earshot." Both refer to the same app.
+
+NOT AFFILIATED WITH GOOGLE
+Earshot is an independent app and is not affiliated with, endorsed by, or connected to Google or Android's "Live Transcribe." The description references Google's Live Transcribe historically/descriptively; "Live Transcription" in the title is used in its ordinary descriptive sense. The developer's prior role as a product manager on Android Live Transcribe is stated only as factual background.
+
+SOUND ALERTS ARE ASSISTIVE, NOT A CERTIFIED SAFETY DEVICE
+The urgent-sound alerts (smoke alarm, carbon monoxide, etc.) are a best-effort assistive feature, not a substitute for certified alarms or medical/safety equipment. The app makes no medical claims.
+
+PRIVACY & COMPLIANCE
+- No data collection, no analytics, no ads, no tracking, no data-exfiltrating third-party SDKs.
+- PrivacyInfo.xcprivacy is bundled; NSPrivacyCollectedDataTypes is empty; required-reason API usage (UserDefaults) is declared.
+- ITSAppUsesNonExemptEncryption is NO; no export-compliance documentation required.
+- iPhone only; iOS 17 and later.
+
+CONTACT
+Questions during review: brian.kemler@gmail.com — happy to respond quickly.
 ```
 
 ## What's New (for each release)
