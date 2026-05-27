@@ -7,6 +7,30 @@ Keep under 4000 chars. Latest build notes first.
 
 ---
 
+## Build 26 (1.0)
+
+Group-screen fixes from on-device feedback.
+
+### What changed
+- **Mic/speaker pills now fit on a single line** at the top — compact, and they scroll
+  sideways if you ever have more than fit. No more pills clipped under the status bar.
+- **Captions fade out below the "Listening" line** instead of scrolling up over it — the top
+  of the conversation now dissolves into the background.
+- **Multi-mic: we now ask iOS for *all* input channels.** Previously the app could be handed a
+  1–2 channel downmix of a multi-channel receiver, so it couldn't tell the mics apart. It now
+  requests the maximum the device offers.
+
+### Please test (multi-mic hardware)
+- Connect your multi-channel receiver, start a **group** session, and **count the mic pills**:
+  that's how many separate channels iOS is giving us. If you see one pill per mic (e.g. 4),
+  per-mic separation is working — talk into each mic and watch its pill light up + lines tag
+  "Mic N".
+- If you see *fewer* pills than mics, the receiver is likely outputting a mixed/stereo signal
+  rather than discrete channels — check for a "multitrack" / "split" output mode on the device.
+  (Tell me the pill count and I can dig in.)
+
+---
+
 ## Build 25 (1.0)
 
 Group conversations have a new **chat-bubble** look.

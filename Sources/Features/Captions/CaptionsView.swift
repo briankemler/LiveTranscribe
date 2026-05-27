@@ -126,6 +126,20 @@ struct CaptionsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
+            // Top fade — in group mode the bubble feed scrolls up behind the status pill + roster,
+            // so we dissolve it into the background just below the "Listening" line instead of
+            // letting captions collide with the pills. Sits above the feed but below the pills.
+            if mode == .group {
+                LinearGradient(
+                    colors: [theme.bg, theme.bg, theme.bg.opacity(0)],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .frame(height: 150)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
+            }
+
             // Status pill row: back chevron (discard + return to home) + always-visible
             // status pill + optional ambient sound tag. Spec §"Status pill"; back button is
             // a deliberate addition to the spec — see plan note in
@@ -488,33 +502,39 @@ struct CaptionsView: View {
         return currentLine?.speaker.id
     }
 
-    /// Cozy roster: a wrapping row of avatar+name pills. The active speaker's pill is tinted with
-    /// their color; the rest are quiet surface capsules.
+    /// Cozy roster: a single-line strip of compact avatar+name pills. The active speaker's pill is
+    /// tinted with their color; the rest are quiet surface capsules. Scrolls horizontally if there
+    /// are more pills than fit, so it never wraps into a second row or gets clipped at the top.
     private var cozyRoster: some View {
-        FlowLayout(spacing: 8) {
-            ForEach(rosterSpeakers) { speaker in
-                let color = tweaks.showSpeakerColors ? speaker.color(in: theme) : theme.inkSoft
-                let isActive = activeSpeakerId == speaker.id
-                HStack(spacing: 7) {
-                    Text(speaker.initial)
-                        .font(.scaled(size: 10, weight: .heavy, relativeTo: .caption2))
-                        .foregroundStyle(.white)
-                        .frame(width: 22, height: 22)
-                        .background(Circle().fill(color))
-                    Text(speaker.displayName)
-                        .font(.scaled(size: 12, weight: .semibold, relativeTo: .caption1))
-                        .foregroundStyle(isActive ? theme.ink : theme.inkSoft)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 7) {
+                ForEach(rosterSpeakers) { speaker in
+                    let color = tweaks.showSpeakerColors ? speaker.color(in: theme) : theme.inkSoft
+                    let isActive = activeSpeakerId == speaker.id
+                    HStack(spacing: 6) {
+                        Text(speaker.initial)
+                            .font(.scaled(size: 9, weight: .heavy, relativeTo: .caption2))
+                            .foregroundStyle(.white)
+                            .frame(width: 19, height: 19)
+                            .background(Circle().fill(color))
+                        Text(speaker.displayName)
+                            .font(.scaled(size: 12, weight: .semibold, relativeTo: .caption1))
+                            .foregroundStyle(isActive ? theme.ink : theme.inkSoft)
+                            .lineLimit(1)
+                            .fixedSize()
+                    }
+                    .padding(.leading, 4)
+                    .padding(.trailing, 11)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(isActive ? color.opacity(0.16) : theme.surface))
+                    .overlay(Capsule().stroke(isActive ? color : theme.line, lineWidth: 1))
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(speaker.displayName)\(isActive ? ", speaking" : "")")
                 }
-                .padding(.leading, 4)
-                .padding(.trailing, 12)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(isActive ? color.opacity(0.16) : theme.surface))
-                .overlay(Capsule().stroke(isActive ? color : theme.line, lineWidth: 1))
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(speaker.displayName)\(isActive ? ", speaking" : "")")
             }
+            .padding(.vertical, 2)  // breathing room so the active stroke isn't clipped
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .scrollClipDisabled()
         .animation(.easeInOut(duration: 0.25), value: activeSpeakerId)
     }
 
@@ -524,7 +544,7 @@ struct CaptionsView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Spacer().frame(height: 104) // clear the status pill + roster rows above
+                    Spacer().frame(height: 116) // clear the status pill + roster rows above
 
                     ForEach(feedHistory) { line in
                         bubble(for: line, text: line.text, emphasized: false)

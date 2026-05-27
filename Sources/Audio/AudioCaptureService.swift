@@ -158,6 +158,16 @@ final class AudioCaptureService {
             try session.setPreferredSampleRate(targetSampleRate)
             try session.setPreferredIOBufferDuration(0.1) // ~100 ms tap callbacks
             try session.setActive(true, options: [])
+
+            // Ask iOS to expose EVERY input channel the device offers. Without this, a
+            // multi-channel USB receiver (e.g. a 4-mic wireless system) is handed to us as a
+            // 1–2 channel downmix and we can't separate the mics. `maximumInputNumberOfChannels`
+            // is only valid once the session is active, so this runs after `setActive`.
+            let maxInputChannels = session.maximumInputNumberOfChannels
+            log.info("maxInputNumberOfChannels=\(maxInputChannels)")
+            if maxInputChannels > 1 {
+                try? session.setPreferredInputNumberOfChannels(maxInputChannels)
+            }
         } catch {
             throw CaptureError.sessionConfigurationFailed(error)
         }
