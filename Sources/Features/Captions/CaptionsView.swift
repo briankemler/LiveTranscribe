@@ -105,14 +105,18 @@ struct CaptionsView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { revealBar() }
 
-            // Caption region. Group mode uses the cozy chat-bubble layout (one bubble per
-            // utterance, with the speaker's avatar). 1:1 uses the teleprompter: `.focus` is the
-            // big-current-line stack, `.feed` is the plain chat-style scroll. Tapping anywhere
-            // reveals the control bar (handled by the bg tap target).
-            Group {
-                if mode == .group {
+            // Caption region. Group mode uses a fixed, opaque header (status pill + speaker pills)
+            // with the chat-bubble feed clipped beneath it — so captions slide *under* the header
+            // and can never collide with the pills. 1:1 uses the teleprompter (`.focus` big current
+            // line, `.feed` plain scroll) with a floating status pill on top.
+            if mode == .group {
+                VStack(spacing: 0) {
+                    groupHeader
                     bubbleFeed
-                } else {
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            } else {
+                Group {
                     switch tweaks.captionLayout {
                     case .focus:
                         captionStack
@@ -123,52 +127,23 @@ struct CaptionsView: View {
                         captionFeed
                     }
                 }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-            // Top fade — in group mode the bubble feed scrolls up behind the status pill + roster,
-            // so we dissolve it into the background just below the "Listening" line instead of
-            // letting captions collide with the pills. Sits above the feed but below the pills.
-            if mode == .group {
-                LinearGradient(
-                    colors: [theme.bg, theme.bg, theme.bg.opacity(0)],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .frame(height: 150)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .ignoresSafeArea(edges: .top)
-                .allowsHitTesting(false)
-            }
-
-            // Status pill row: back chevron (discard + return to home) + always-visible
-            // status pill + optional ambient sound tag. Spec §"Status pill"; back button is
-            // a deliberate addition to the spec — see plan note in
-            // `i-m-resuming-work-on-serene-moon.md` §"Captions: back-to-home affordance".
-            HStack(spacing: 8) {
-                backButton
-                CaptionsStatusPill(elapsedSeconds: elapsedSeconds)
-                Spacer()
-                // Right-margin sound tag (B2). Build 14: real detections from
-                // `SoundRecognitionService.lastAmbientDetection`. Hidden when silent (spec
-                // layout), when the master toggle is off, or when no fresh detection is
-                // active (auto-clears after `ambientStaleSeconds`).
-                if tweaks.showAmbientSounds && !isSilent, let det = currentAmbientDetection {
-                    SoundMarginTag(icon: det.sound.icon, label: det.sound.label)
-                        .id(det.sound.classifierID)  // forces transition on label change
+                // 1:1 status pill row (floating). Group draws its own inside `groupHeader`.
+                HStack(spacing: 8) {
+                    backButton
+                    CaptionsStatusPill(elapsedSeconds: elapsedSeconds)
+                    Spacer()
+                    if tweaks.showAmbientSounds && !isSilent, let det = currentAmbientDetection {
+                        SoundMarginTag(icon: det.sound.icon, label: det.sound.label)
+                            .id(det.sound.classifierID)
+                    }
                 }
-            }
-            .animation(.easeInOut(duration: 0.3), value: currentAmbientDetection?.sound.classifierID)
-            .padding(.horizontal, 24)
-            .padding(.top, 18)
-            .animation(.easeInOut(duration: 0.3), value: tweaks.showAmbientSounds)
-            .animation(.easeInOut(duration: 0.3), value: isSilent)
-
-            // Group-mode roster: cozy avatar+name pills below the status pill, suppressed during
-            // silence. Multi-mic shows Mic 1…N; otherwise the speakers seen in the conversation.
-            if mode == .group && !isSilent {
-                cozyRoster
-                    .padding(.horizontal, 20)
-                    .padding(.top, 50)  // sits just below the status pill
+                .animation(.easeInOut(duration: 0.3), value: currentAmbientDetection?.sound.classifierID)
+                .padding(.horizontal, 24)
+                .padding(.top, 18)
+                .animation(.easeInOut(duration: 0.3), value: tweaks.showAmbientSounds)
+                .animation(.easeInOut(duration: 0.3), value: isSilent)
             }
 
             // Silence pill (D1) — centered, only when silent.
@@ -544,7 +519,7 @@ struct CaptionsView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Spacer().frame(height: 116) // clear the status pill + roster rows above
+                    Spacer().frame(height: 8) // small gap below the opaque header
 
                     ForEach(feedHistory) { line in
                         bubble(for: line, text: line.text, emphasized: false)
@@ -576,10 +551,55 @@ struct CaptionsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .simultaneousGesture(TapGesture().onEnded { revealBar() })
+            // Soft-fade only the very top edge of the feed so lines dissolve as they slide under
+            // the opaque header (not behind the pills — the header already protects that).
+            .mask(
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 14)
+                    Color.black
+                }
+            )
             .onChange(of: feedHistory.count) { _, _ in scrollFeedToBottom(proxy) }
             .onChange(of: currentText) { _, _ in scrollFeedToBottom(proxy) }
             .onAppear { scrollFeedToBottom(proxy, animated: false) }
         }
+    }
+
+    /// Opaque group header: status pill row + speaker pills. Drawn above the bubble feed (which is
+    /// clipped beneath it), so captions slide under the header and never collide with the pills.
+    private var groupHeader: some View {
+        VStack(alignment: .leading, spacing: 14) {  // #2: clear gap between status line and pills
+            HStack(spacing: 8) {
+                backButton
+                CaptionsStatusPill(elapsedSeconds: elapsedSeconds)
+                Spacer(minLength: 0)
+            }
+            if !isSilent {
+                cozyRoster
+                    .padding(.leading, 40)  // #3: align first pill under the status pill (32pt back button + 8pt gap)
+            }
+
+            // Diagnostic: an external mic is connected but iOS only gets one channel — i.e. the
+            // device is mixing its mics before sending them. Explains why we can't split speakers.
+            if let s = session, s.inputIsExternal, s.micCount < 2 {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.scaled(size: 10, relativeTo: .caption2))
+                    Text("\(s.inputName.isEmpty ? "This mic" : s.inputName) sends one mixed channel — per-mic labels need a multitrack interface")
+                        .font(.scaled(size: 10, relativeTo: .caption2))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .foregroundStyle(theme.inkMute)
+                .padding(.leading, 40)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(theme.bg)  // #4: opaque — captions slide underneath, never behind the pills
+        .animation(.easeInOut(duration: 0.25), value: isSilent)
     }
 
     /// One chat bubble: speaker name label, colored avatar circle, and the text card. The live

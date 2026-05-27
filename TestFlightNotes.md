@@ -7,6 +7,28 @@ Keep under 4000 chars. Latest build notes first.
 
 ---
 
+## Build 27 (1.0)
+
+More group-screen polish + a heads-up about mixed-signal mics.
+
+### Visual fixes
+- The status ("Listening") line and the speaker/mic pills now have **clear breathing room**
+  between them, and the **first pill lines up under the "Listening" pill**.
+- The top of the screen is now a **fixed, solid header** — captions scroll *underneath* the
+  status line and pills and are never in conflict with them (no more captions bleeding into the
+  pills).
+
+### About multi-mic separation (important)
+- Earshot can only label speakers by mic if your device sends **separate channels per mic**.
+  Many wireless lav systems (incl. the Fulaim X6 Pro) **mix all their mics into one mono/stereo
+  signal** before sending it to the phone — so the phone only ever receives one blended channel
+  and *no app* can pull the mics back apart.
+- If you connect an external mic and Earshot only sees one channel, it now shows a small note
+  explaining this. **True per-mic separation needs a multitrack USB-C audio interface** (e.g. a
+  class-compliant interface that exposes each input as its own channel).
+
+---
+
 ## Build 26 (1.0)
 
 Group-screen fixes from on-device feedback.

@@ -53,6 +53,14 @@ final class AudioCaptureService {
     /// Human-readable name of the active input device (for the Settings "Microphones" readout).
     private(set) var inputName: String = ""
 
+    /// True when the active input is an external device (USB/Lightning interface), not the built-in
+    /// mic. Lets the UI explain "external device connected but only sending 1 channel (a mix)".
+    private(set) var inputIsExternal: Bool = false
+
+    /// Max input channels the active route can provide (the device's ceiling). If this is < the
+    /// number of mics the user expects, the device is mixing them before iOS ever sees them.
+    private(set) var maxInputChannels: Int = 1
+
     /// Noise floor a channel's RMS must clear to count as the active mic. `nonisolated` so the
     /// realtime `AudioSink` (off the main actor) can read it.
     nonisolated static let activeMicThreshold: Float = 0.06
@@ -163,10 +171,11 @@ final class AudioCaptureService {
             // multi-channel USB receiver (e.g. a 4-mic wireless system) is handed to us as a
             // 1–2 channel downmix and we can't separate the mics. `maximumInputNumberOfChannels`
             // is only valid once the session is active, so this runs after `setActive`.
-            let maxInputChannels = session.maximumInputNumberOfChannels
-            log.info("maxInputNumberOfChannels=\(maxInputChannels)")
-            if maxInputChannels > 1 {
-                try? session.setPreferredInputNumberOfChannels(maxInputChannels)
+            let maxCh = session.maximumInputNumberOfChannels
+            maxInputChannels = maxCh
+            log.info("maxInputNumberOfChannels=\(maxCh)")
+            if maxCh > 1 {
+                try? session.setPreferredInputNumberOfChannels(maxCh)
             }
         } catch {
             throw CaptureError.sessionConfigurationFailed(error)
@@ -213,6 +222,7 @@ final class AudioCaptureService {
     private func detectMicCount(channelCount: Int) -> Int {
         let session = AVAudioSession.sharedInstance()
         let isExternal = session.currentRoute.inputs.contains { $0.portType != .builtInMic }
+        inputIsExternal = isExternal
         return (isExternal && channelCount >= 2) ? channelCount : 1
     }
 

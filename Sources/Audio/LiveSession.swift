@@ -65,6 +65,13 @@ final class LiveSession {
     /// True when we should show mic pills + use mic-based attribution instead of the heuristic.
     var usesMicDiarization: Bool { micCount >= 2 }
 
+    /// Diagnostics for the group header: the active input's name, whether it's an external device,
+    /// and the max channels it offers. Used to explain "external mic connected but it's sending a
+    /// mixed signal" when a device pre-mixes its mics (e.g. a wireless lav receiver in mono mode).
+    private(set) var inputName: String = ""
+    private(set) var inputIsExternal: Bool = false
+    private(set) var maxInputChannels: Int = 1
+
     // MARK: - Debug telemetry (visible in UI)
 
     /// Seconds of audio accumulated so far. Climbs as the mic feeds the pipeline.
@@ -211,6 +218,9 @@ final class LiveSession {
 
             // Pick up how many mics the active input exposes (≥ 2 ⇒ multi-mic group screen).
             micCount = audio.micCount
+            inputName = audio.inputName
+            inputIsExternal = audio.inputIsExternal
+            maxInputChannels = audio.maxInputChannels
             if micCount >= 2 { micLevels = [Float](repeating: 0, count: micCount) }
 
             // 6. Now that the audio session is live, the inputNode's format is final. Boot the
