@@ -31,6 +31,11 @@ final class AudioCaptureService {
         let timestamp: TimeInterval // host time when the chunk's first sample was captured
         /// 0 ... 1 RMS level for waveform UI. Computed once here so the UI doesn't recompute every frame.
         let rms: Float
+        /// 0 ... 1 RMS per input channel (length == channel count). Single element in single-mic mode.
+        /// Drives the multi-mic pills + active-speaker selection in group mode.
+        let channelRMS: [Float]
+        /// Index of the loudest channel above the noise floor, or -1 when the room is quiet.
+        let activeChannel: Int
     }
 
     // MARK: - Observed state
@@ -39,6 +44,18 @@ final class AudioCaptureService {
     private(set) var isRecording: Bool = false
     /// 0 ... 1 — most recent RMS, smoothed for waveform animation.
     private(set) var audioLevel: Float = 0
+
+    /// Number of physical mics on the active input. 1 = built-in / single channel (use the
+    /// pause heuristic); ≥ 2 = an external multi-channel interface where each channel is a mic.
+    /// Set at `start()` from the current route; see `detectMicCount`.
+    private(set) var micCount: Int = 1
+
+    /// Human-readable name of the active input device (for the Settings "Microphones" readout).
+    private(set) var inputName: String = ""
+
+    /// Noise floor a channel's RMS must clear to count as the active mic. `nonisolated` so the
+    /// realtime `AudioSink` (off the main actor) can read it.
+    nonisolated static let activeMicThreshold: Float = 0.06
 
     // MARK: - Private
 
@@ -157,10 +174,18 @@ final class AudioCaptureService {
             // Should be impossible: start() sets continuation right after installTap returns.
             throw CaptureError.converterCreationFailed
         }
+
+        // Decide whether this is a multi-mic setup (external multi-channel interface) vs a single
+        // built-in/Bluetooth mic. Only the former drives the per-mic pills + channel attribution.
+        micCount = detectMicCount(channelCount: Int(inputFormat.channelCount))
+        inputName = session.currentRoute.inputs.first?.portName ?? ""
+        log.info("micCount=\(self.micCount) input=\(self.inputName)")
+
         let sink = AudioSink(
             inputSampleRate: inputFormat.sampleRate,
             inputChannels: Int(inputFormat.channelCount),
             outputSampleRate: targetSampleRate,
+            multiMic: micCount >= 2,
             continuation: continuation,
             onLevel: { [weak self] level in
                 Task { @MainActor [weak self] in self?.audioLevel = level }
@@ -169,6 +194,16 @@ final class AudioCaptureService {
         )
         self.sink = sink
         sink.install(on: input, bufferSize: 1024, format: inputFormat)
+    }
+
+    /// A multi-mic setup = an *external* input device exposing ≥ 2 channels (e.g. a USB-C audio
+    /// interface or mic array). The built-in mic is excluded even when it reports 2 channels
+    /// (stereo) — those aren't separate speakers. Bluetooth headsets are external but mono, so the
+    /// channel-count gate filters them out.
+    private func detectMicCount(channelCount: Int) -> Int {
+        let session = AVAudioSession.sharedInstance()
+        let isExternal = session.currentRoute.inputs.contains { $0.portType != .builtInMic }
+        return (isExternal && channelCount >= 2) ? channelCount : 1
     }
 
     private func startEngine() throws {
@@ -192,6 +227,10 @@ final class AudioSink: @unchecked Sendable {
     private let inputSampleRate: Double
     private let inputChannels: Int
     private let outputSampleRate: Double
+    /// When true, treat each input channel as a separate mic: compute per-channel levels, pick the
+    /// loudest as the active mic, and feed only that channel to Whisper. When false, mono-mix all
+    /// channels as before.
+    private let multiMic: Bool
     private let resampleRatio: Double  // input / output
     private let continuation: AsyncStream<AudioCaptureService.AudioChunk>.Continuation
     private let onLevel: @Sendable (Float) -> Void
@@ -206,6 +245,7 @@ final class AudioSink: @unchecked Sendable {
         inputSampleRate: Double,
         inputChannels: Int,
         outputSampleRate: Double,
+        multiMic: Bool = false,
         continuation: AsyncStream<AudioCaptureService.AudioChunk>.Continuation,
         onLevel: @escaping @Sendable (Float) -> Void,
         onRawBuffer: (@Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void)? = nil
@@ -213,6 +253,7 @@ final class AudioSink: @unchecked Sendable {
         self.inputSampleRate = inputSampleRate
         self.inputChannels = inputChannels
         self.outputSampleRate = outputSampleRate
+        self.multiMic = multiMic
         self.resampleRatio = inputSampleRate / outputSampleRate
         self.continuation = continuation
         self.onLevel = onLevel
@@ -238,12 +279,27 @@ final class AudioSink: @unchecked Sendable {
         //    SoundAnalysis wants the native input format, not the resampled mono floats below.
         onRawBuffer?(buffer, time)
 
-        // 1. Pull Float32 mono samples from whatever input format the hardware gave us.
-        let mono = monoSamples(from: buffer, frameCount: frames)
-        guard !mono.isEmpty else { return }
+        // 1. In multi-mic mode, measure each channel and pick the loudest above the noise floor as
+        //    the active mic; feed ONLY that channel to Whisper (cleaner than mixing open mics).
+        //    Otherwise, mono-mix all channels as before.
+        var channelLevels: [Float] = []
+        var activeChannel = -1
+        let source: [Float]
+        if multiMic {
+            channelLevels = channelRMS(from: buffer, frameCount: frames)
+            if let peak = channelLevels.max(), peak > AudioCaptureService.activeMicThreshold {
+                activeChannel = channelLevels.firstIndex(of: peak) ?? -1
+            }
+            source = activeChannel >= 0
+                ? channelSamples(activeChannel, from: buffer, frameCount: frames)
+                : monoSamples(from: buffer, frameCount: frames)
+        } else {
+            source = monoSamples(from: buffer, frameCount: frames)
+        }
+        guard !source.isEmpty else { return }
 
         // 2. Linear-interpolation resample to the target rate (typically 48 kHz → 16 kHz).
-        let resampled = resample(mono: mono)
+        let resampled = resample(mono: source)
 
         // 3. RMS — surfaced to the UI for the waveform animation.
         var sumSq: Float = 0
@@ -252,7 +308,7 @@ final class AudioSink: @unchecked Sendable {
         let rms = min(1.0, sqrt(mean) * 4.0)
 
         if Int.random(in: 0..<20) == 0 {
-            log.debug("tap: inFrames=\(frames) outFrames=\(resampled.count) rms=\(rms, format: .fixed(precision: 3))")
+            log.debug("tap: inFrames=\(frames) outFrames=\(resampled.count) rms=\(rms, format: .fixed(precision: 3)) active=\(activeChannel)")
         }
 
         let host = AVAudioTime.seconds(forHostTime: time.hostTime)
@@ -260,10 +316,49 @@ final class AudioSink: @unchecked Sendable {
             samples: resampled,
             sampleRate: outputSampleRate,
             timestamp: host,
-            rms: rms
+            rms: rms,
+            channelRMS: multiMic ? channelLevels : [rms],
+            activeChannel: multiMic ? activeChannel : 0
         )
         continuation.yield(chunk)
         onLevel(rms)
+    }
+
+    /// Per-channel normalized RMS (0...1), same scaling as the overall `rms`. Used for the mic
+    /// level meters / active-mic selection in multi-mic mode.
+    private func channelRMS(from buffer: AVAudioPCMBuffer, frameCount: Int) -> [Float] {
+        let channels = Int(buffer.format.channelCount)
+        guard frameCount > 0, channels > 0 else { return [] }
+        var levels = [Float](repeating: 0, count: channels)
+        if let f = buffer.floatChannelData {
+            for ch in 0..<channels {
+                var sumSq: Float = 0
+                for i in 0..<frameCount { let s = f[ch][i]; sumSq += s * s }
+                levels[ch] = min(1.0, sqrt(sumSq / Float(frameCount)) * 4.0)
+            }
+        } else if let i16 = buffer.int16ChannelData {
+            let scale: Float = 1 / Float(Int16.max)
+            for ch in 0..<channels {
+                var sumSq: Float = 0
+                for i in 0..<frameCount { let s = Float(i16[ch][i]) * scale; sumSq += s * s }
+                levels[ch] = min(1.0, sqrt(sumSq / Float(frameCount)) * 4.0)
+            }
+        }
+        return levels
+    }
+
+    /// Extract a single channel as Float32 (each channel is already a mono mic in multi-mic mode).
+    private func channelSamples(_ ch: Int, from buffer: AVAudioPCMBuffer, frameCount: Int) -> [Float] {
+        if let f = buffer.floatChannelData {
+            return Array(UnsafeBufferPointer(start: f[ch], count: frameCount))
+        }
+        if let i16 = buffer.int16ChannelData {
+            let scale: Float = 1 / Float(Int16.max)
+            var out = [Float](repeating: 0, count: frameCount)
+            for i in 0..<frameCount { out[i] = Float(i16[ch][i]) * scale }
+            return out
+        }
+        return []
     }
 
     /// Extract a Float32 mono mixdown from any input format the input node hands us.

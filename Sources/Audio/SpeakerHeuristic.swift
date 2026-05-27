@@ -57,4 +57,19 @@ extension Speaker {
             colorRole: role
         )
     }
+
+    /// Microphone factory — used by group mode when a multi-channel input device is connected,
+    /// so each line is attributed to the physical mic (channel) that was loudest. `n` is the
+    /// 1-indexed mic number. Reuses the same A–D color cycle as `numbered(_:)` so a mic keeps a
+    /// stable accent across pills and transcript lines.
+    static func mic(_ n: Int) -> Speaker {
+        let roles: [SpeakerColorRole] = [.c, .b, .d, .a]
+        let role = roles[(n - 1) % roles.count]
+        return Speaker(
+            id: "Mic \(n)",
+            displayName: "Mic \(n)",
+            initial: "\(n)",
+            colorRole: role
+        )
+    }
 }

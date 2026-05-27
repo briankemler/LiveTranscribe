@@ -105,18 +105,23 @@ struct CaptionsView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { revealBar() }
 
-            // Caption region — `.focus` shows the teleprompter stack, `.feed` shows the
-            // chat-style scrolling feed. Both sit in the same slot; only the inner content
-            // differs. Tapping anywhere still reveals the bar (handled by the bg tap target).
+            // Caption region. Group mode uses the cozy chat-bubble layout (one bubble per
+            // utterance, with the speaker's avatar). 1:1 uses the teleprompter: `.focus` is the
+            // big-current-line stack, `.feed` is the plain chat-style scroll. Tapping anywhere
+            // reveals the control bar (handled by the bg tap target).
             Group {
-                switch tweaks.captionLayout {
-                case .focus:
-                    captionStack
-                        .padding(.horizontal, 24)
-                        .padding(.top, 18)
-                        .padding(.bottom, 20)
-                case .feed:
-                    captionFeed
+                if mode == .group {
+                    bubbleFeed
+                } else {
+                    switch tweaks.captionLayout {
+                    case .focus:
+                        captionStack
+                            .padding(.horizontal, 24)
+                            .padding(.top, 18)
+                            .padding(.bottom, 20)
+                    case .feed:
+                        captionFeed
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -144,12 +149,12 @@ struct CaptionsView: View {
             .animation(.easeInOut(duration: 0.3), value: tweaks.showAmbientSounds)
             .animation(.easeInOut(duration: 0.3), value: isSilent)
 
-            // Group-mode roster strip (deviation from spec — see plan §1). Compact pill row
-            // below status pill, suppressed in 1:1 mode and during silence.
+            // Group-mode roster: cozy avatar+name pills below the status pill, suppressed during
+            // silence. Multi-mic shows Mic 1…N; otherwise the speakers seen in the conversation.
             if mode == .group && !isSilent {
-                groupRoster
-                    .padding(.horizontal, 24)
-                    .padding(.top, 52)  // sits just below the status pill
+                cozyRoster
+                    .padding(.horizontal, 20)
+                    .padding(.top, 50)  // sits just below the status pill
             }
 
             // Silence pill (D1) — centered, only when silent.
@@ -213,7 +218,8 @@ struct CaptionsView: View {
         }) {
             CaptionsQuickSettingsSheet(
                 tweaks: $bindable.tweaks,
-                openAllSettings: { state.push(.settings) }
+                openAllSettings: { state.push(.settings) },
+                showLayoutRow: mode == .oneToOne
             )
             // Build-14: fitted height detent so the captions stay visible above the sheet.
             // `[.medium, .large]` covered ~50% of the screen for 4 rows of content. 380 pt
@@ -245,6 +251,18 @@ struct CaptionsView: View {
                     ],
                     current: .init(speaker: .maya, text: "Honestly though, the espresso here is unreal.")
                 )
+                return
+            }
+            // Multi-mic group screen: `--demo-mics N` fakes N mics with rotating activity so the
+            // mic pills can be screenshotted/demoed on the Simulator. Debug-only.
+            let args = ProcessInfo.processInfo.arguments
+            if let i = args.firstIndex(of: "--demo-mics"), i + 1 < args.count, let n = Int(args[i + 1]) {
+                s.seedDemoMics(count: n)
+                return
+            }
+            // Named-speaker group bubbles (Jordan / Maya / Priya / You) for screenshots.
+            if args.contains("--demo-group"), let last = SampleScripts.group.last {
+                s.seedDemoCaptions(history: Array(SampleScripts.group.dropLast()), current: last)
                 return
             }
 #endif
@@ -445,28 +463,162 @@ struct CaptionsView: View {
             .accessibilityHidden(true)
     }
 
-    // MARK: - Group roster (deviation from spec)
+    // MARK: - Group roster + chat bubbles (cozy layout)
 
-    /// Compact horizontal speaker pills, 1 per slot in `Speaker.numbered(1...4)`. The
-    /// captions spec doesn't show speaker attribution at all, but for group mode we keep a
-    /// minimal indicator so users know who's talking. The active speaker uses filled bg.
-    private var groupRoster: some View {
-        let activeId = currentLine?.speaker.id
-        let speakers = (1...4).map { Speaker.numbered($0) }
-        return HStack(spacing: 6) {
-            ForEach(speakers) { speaker in
-                let isActive = activeId == speaker.id
-                let color = tweaks.showSpeakerColors ? speaker.color(in: theme) : theme.inkSoft
-                Text(speaker.initial)
-                    .font(.scaled(size: 9, weight: .heavy, relativeTo: .caption2))
-                    .foregroundStyle(isActive ? theme.bg : color)
-                    .frame(width: 22, height: 22)
-                    .background(Circle().fill(isActive ? color : theme.surface))
-                    .overlay(Circle().stroke(color, lineWidth: 1))
-                    .accessibilityLabel("\(speaker.displayName)\(isActive ? ", speaking" : "")")
-            }
-            Spacer(minLength: 0)
+    /// Speakers to show as roster pills. Multi-mic → one per connected mic (Mic 1…N, all shown so
+    /// you can see every input). Otherwise → the distinct speakers seen so far, first-appearance order.
+    private var rosterSpeakers: [Speaker] {
+        if let s = session, s.usesMicDiarization {
+            return (1...max(1, s.micCount)).map { Speaker.mic($0) }
         }
+        var order: [Speaker] = []
+        var seen = Set<String>()
+        let all = (session?.lines ?? []) + (currentLine.map { [$0] } ?? [])
+        for line in all where seen.insert(line.speaker.id).inserted {
+            order.append(line.speaker)
+        }
+        return order
+    }
+
+    /// The speaker currently talking — drives the highlighted roster pill.
+    private var activeSpeakerId: String? {
+        if let s = session, s.usesMicDiarization, let m = s.activeMic {
+            return Speaker.mic(m + 1).id
+        }
+        return currentLine?.speaker.id
+    }
+
+    /// Cozy roster: a wrapping row of avatar+name pills. The active speaker's pill is tinted with
+    /// their color; the rest are quiet surface capsules.
+    private var cozyRoster: some View {
+        FlowLayout(spacing: 8) {
+            ForEach(rosterSpeakers) { speaker in
+                let color = tweaks.showSpeakerColors ? speaker.color(in: theme) : theme.inkSoft
+                let isActive = activeSpeakerId == speaker.id
+                HStack(spacing: 7) {
+                    Text(speaker.initial)
+                        .font(.scaled(size: 10, weight: .heavy, relativeTo: .caption2))
+                        .foregroundStyle(.white)
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(color))
+                    Text(speaker.displayName)
+                        .font(.scaled(size: 12, weight: .semibold, relativeTo: .caption1))
+                        .foregroundStyle(isActive ? theme.ink : theme.inkSoft)
+                }
+                .padding(.leading, 4)
+                .padding(.trailing, 12)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(isActive ? color.opacity(0.16) : theme.surface))
+                .overlay(Capsule().stroke(isActive ? color : theme.line, lineWidth: 1))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(speaker.displayName)\(isActive ? ", speaking" : "")")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(.easeInOut(duration: 0.25), value: activeSpeakerId)
+    }
+
+    /// Chat-style bubble transcript for group mode: one bubble per finalized line plus the live
+    /// line at the bottom (emphasized + caret), each with the speaker's avatar. Auto-scrolls.
+    private var bubbleFeed: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Spacer().frame(height: 104) // clear the status pill + roster rows above
+
+                    ForEach(feedHistory) { line in
+                        bubble(for: line, text: line.text, emphasized: false)
+                    }
+
+                    // Live line at the bottom (emphasized). Before the first words land, show a
+                    // quiet status line (e.g. "Listening…") instead of an empty bubble.
+                    if !isSilent {
+                        if let cur = currentLine {
+                            bubble(for: cur, text: cur.text, emphasized: true)
+                        } else {
+                            Text(currentText)
+                                .font(.scaled(size: 15, relativeTo: .subheadline))
+                                .foregroundStyle(theme.inkMute)
+                                .padding(.leading, 46)
+                        }
+                    }
+
+                    // Inline ambient sound moment (e.g. applause) — mirrors the cozy reference.
+                    if tweaks.showAmbientSounds, let det = currentAmbientDetection {
+                        ambientChip(det)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+
+                    Color.clear.frame(height: 1).id(Self.feedBottomID)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .simultaneousGesture(TapGesture().onEnded { revealBar() })
+            .onChange(of: feedHistory.count) { _, _ in scrollFeedToBottom(proxy) }
+            .onChange(of: currentText) { _, _ in scrollFeedToBottom(proxy) }
+            .onAppear { scrollFeedToBottom(proxy, animated: false) }
+        }
+    }
+
+    /// One chat bubble: speaker name label, colored avatar circle, and the text card. The live
+    /// line renders larger in the display serif with a caret; finalized lines are calmer sans.
+    private func bubble(for line: TranscriptLine, text: String, emphasized: Bool) -> some View {
+        let color = tweaks.showSpeakerColors ? line.speaker.color(in: theme) : theme.inkSoft
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(line.speaker.displayName.uppercased())
+                .font(.scaled(size: 11, weight: .heavy, relativeTo: .caption2))
+                .tracking(0.4)
+                .foregroundStyle(color)
+                .padding(.leading, 46)  // align with the bubble, past the avatar
+
+            HStack(alignment: .center, spacing: 10) {
+                Text(line.speaker.initial)
+                    .font(.scaled(size: 13, weight: .heavy, relativeTo: .caption1))
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(color))
+
+                HStack(alignment: .lastTextBaseline, spacing: 3) {
+                    Text(text)
+                        .font(emphasized
+                              ? .scaled(size: 22 * tweaks.textSize.scale, weight: .medium, design: .serif, relativeTo: .title3)
+                              : .scaled(size: 16 * tweaks.textSize.scale, relativeTo: .body))
+                        .foregroundStyle(emphasized ? theme.ink : theme.inkSoft)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if emphasized { BlinkingCaret(height: 18, width: 3) }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(theme.surface)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(emphasized ? color.opacity(0.5) : theme.line, lineWidth: 1)
+                        )
+                )
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(line.speaker.displayName): \(text)")
+    }
+
+    /// Small centered sound chip shown inline in the bubble feed (ambient/social detections).
+    private func ambientChip(_ det: SoundDetection) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: det.sound.icon)
+                .font(.scaled(size: 11, weight: .semibold, relativeTo: .caption2))
+            Text(det.sound.label)
+                .font(.scaled(size: 12, weight: .semibold, relativeTo: .caption1))
+        }
+        .foregroundStyle(theme.social)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Capsule().fill(theme.socialSoft))
+        .id(det.sound.classifierID)
     }
 
     // MARK: - Reveal / hide logic (spec §"Interaction rules" items 1–6)

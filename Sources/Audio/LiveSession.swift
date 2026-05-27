@@ -48,6 +48,23 @@ final class LiveSession {
     /// Surfaced error message if the pipeline has failed; nil while healthy.
     private(set) var error: String?
 
+    // MARK: - Microphones (multi-channel input)
+
+    /// Number of physical mics detected on the active input. 1 = built-in / single-channel
+    /// (fall back to the pause-based `SpeakerHeuristic`); ≥ 2 = a multi-channel interface where
+    /// each channel is a mic and we attribute lines + light up pills by channel.
+    private(set) var micCount: Int = 1
+
+    /// Smoothed 0...1 input level per mic (index = channel). Drives the mic pills.
+    private(set) var micLevels: [Float] = []
+
+    /// Index of the mic currently loudest above the noise floor, or nil when the room is quiet.
+    /// Used both for the active-pill highlight and for attributing the in-progress line.
+    private(set) var activeMic: Int?
+
+    /// True when we should show mic pills + use mic-based attribution instead of the heuristic.
+    var usesMicDiarization: Bool { micCount >= 2 }
+
     // MARK: - Debug telemetry (visible in UI)
 
     /// Seconds of audio accumulated so far. Climbs as the mic feeds the pipeline.
@@ -192,6 +209,10 @@ final class LiveSession {
             // 5. Start audio + run the transcribe loop
             let stream = try audio.start()
 
+            // Pick up how many mics the active input exposes (≥ 2 ⇒ multi-mic group screen).
+            micCount = audio.micCount
+            if micCount >= 2 { micLevels = [Float](repeating: 0, count: micCount) }
+
             // 6. Now that the audio session is live, the inputNode's format is final. Boot the
             //    SNAudioStreamAnalyzer with it — but only if the master enable in Settings is on.
             //    When off, the fan-out hook is still installed but `analyze` is a no-op since
@@ -224,6 +245,10 @@ final class LiveSession {
     func stop() {
         pipelineTask?.cancel()
         pipelineTask = nil
+#if DEBUG
+        demoMicTask?.cancel()
+        demoMicTask = nil
+#endif
         soundRecognition.stop()
         audio.onRawBuffer = nil
         audio.stop()
@@ -283,6 +308,45 @@ final class LiveSession {
         // Suppress the silence pill: pretend the last line landed just now.
         lastNonEmptyEmissionWallClock = Date()
     }
+
+    /// Screenshot/demo seeding for the multi-mic group screen. Sets up `count` mics with a
+    /// transcript attributed to them and rotates the "active" mic on a timer so the pills can be
+    /// seen lighting up. Skips the real audio pipeline (the Simulator has no multi-channel input).
+    /// Triggered only by `--demo-mics N` on a Debug build; compiled out of Release.
+    func seedDemoMics(count: Int) {
+        let n = max(2, count)
+        micCount = n
+        activeMic = 0
+        micLevels = (0..<n).map { $0 == 0 ? 0.82 : 0.06 }
+        lastNonEmptyEmissionWallClock = Date()
+
+        // A short scripted exchange, each line tagged to the mic that "said" it.
+        let script = [
+            "Wait, you actually finished the marathon?",
+            "Four hours twelve. My knees still hate me.",
+            "Okay but the real question is what's for dessert.",
+        ]
+        lines = script.enumerated().dropLast().map { i, text in
+            TranscriptLine(speaker: .mic((i % n) + 1), text: text)
+        }
+        let lastIdx = script.count - 1
+        currentLine = TranscriptLine(speaker: .mic((lastIdx % n) + 1), text: script[lastIdx])
+        activeMic = lastIdx % n
+
+        // Gently rotate the active mic so the "light up when speaking" behavior is visible live.
+        demoMicTask = Task { @MainActor [weak self] in
+            var i = lastIdx % n
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_800_000_000)
+                guard !Task.isCancelled, let self else { return }
+                i = (i + 1) % n
+                self.activeMic = i
+                self.micLevels = (0..<n).map { $0 == i ? 0.82 : 0.06 }
+            }
+        }
+    }
+
+    private var demoMicTask: Task<Void, Never>?
 #endif
 
     // MARK: - Persistence helpers
@@ -360,6 +424,14 @@ final class LiveSession {
             chunksReceived += 1
             bufferSeconds = Double(buffer.count) / sampleRate
 
+            // Multi-mic: smooth the per-channel levels for the pills and track the active mic.
+            // We hold the last active mic through brief gaps (the silence pill covers real silence).
+            if micCount >= 2, chunk.channelRMS.count == micCount {
+                if micLevels.count != micCount { micLevels = chunk.channelRMS }
+                else { for i in 0..<micCount { micLevels[i] += (chunk.channelRMS[i] - micLevels[i]) * 0.4 } }
+                if chunk.activeChannel >= 0 { activeMic = chunk.activeChannel }
+            }
+
             if chunksReceived % 10 == 1 {
                 log.debug("chunk \(self.chunksReceived) — rms=\(chunk.rms, format: .fixed(precision: 3)) bufSec=\(self.bufferSeconds, format: .fixed(precision: 2))")
             }
@@ -414,7 +486,14 @@ final class LiveSession {
                 audioEnd: now,
                 silenceBeforeMs: silenceMs
             )
-            let line = heuristic.line(for: partial)
+            // Attribution: with a multi-channel interface, tag the line with the mic that was
+            // loudest (real per-mic diarization). Otherwise fall back to the pause heuristic.
+            let line: TranscriptLine
+            if micCount >= 2, let mic = activeMic {
+                line = TranscriptLine(speaker: .mic(mic + 1), text: partial.text)
+            } else {
+                line = heuristic.line(for: partial)
+            }
 
             // Promote the in-progress line and start a new one.
             if let prev = currentLine {

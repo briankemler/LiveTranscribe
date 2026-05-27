@@ -10,6 +10,9 @@ struct CaptionsQuickSettingsSheet: View {
     @Binding var tweaks: Tweaks
     /// Pushes `.settings` on the nav stack. Called for the "All settings →" link.
     let openAllSettings: () -> Void
+    /// Focus/Feed only applies in 1:1 mode — group always uses the cozy bubble layout, so the
+    /// parent hides this row there to avoid a no-op control.
+    var showLayoutRow: Bool = true
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
@@ -44,8 +47,10 @@ struct CaptionsQuickSettingsSheet: View {
             .padding(.bottom, 8)
 
             // Settings rows, each separated by a hairline matching `theme.line`.
-            layoutRow
-            Divider().background(theme.line)
+            if showLayoutRow {
+                layoutRow
+                Divider().background(theme.line)
+            }
             textSizeRow
             Divider().background(theme.line)
             ambientSoundsRow

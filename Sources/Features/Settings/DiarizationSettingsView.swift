@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 
 /// Pushed from Settings → Captions → Speaker labels.
 /// Controls how the Live screen labels who's talking.
@@ -37,6 +38,7 @@ struct DiarizationSettingsView: View {
                             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(theme.line, lineWidth: 1))
                     )
 
+                    micReadout
                     aboutCard
                 }
                 .padding(.horizontal, 16)
@@ -77,8 +79,46 @@ struct DiarizationSettingsView: View {
         .buttonStyle(.plain)
     }
 
+    /// Read-only readout of the current input device so the user can confirm a multi-channel
+    /// interface is recognized. `currentRoute` is safe to read without an active session; channel
+    /// counts can read low when no capture is running, so we clamp and explain in copy.
+    private var micReadout: some View {
+        let inputs = AVAudioSession.sharedInstance().currentRoute.inputs
+        let port = inputs.first
+        let name = port?.portName ?? "Built-in microphone"
+        let channels = max(1, port?.channels?.count ?? 1)
+        let isMulti = (port?.portType != .builtInMic) && channels >= 2
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("MICROPHONES")
+                .font(.scaled(size: 11, weight: .heavy, relativeTo: .caption2))
+                .tracking(1.5)
+                .foregroundStyle(theme.inkMute)
+            HStack(spacing: 8) {
+                Image(systemName: isMulti ? "mic.badge.plus" : "mic.fill")
+                    .font(.scaled(size: 14, relativeTo: .subheadline))
+                    .foregroundStyle(isMulti ? theme.accent : theme.inkSoft)
+                Text("\(name) · \(channels) channel\(channels == 1 ? "" : "s")")
+                    .font(.scaled(size: 14, weight: .semibold, relativeTo: .subheadline))
+                    .foregroundStyle(theme.ink)
+            }
+            Text(isMulti
+                 ? "Multi-mic mode is available: each channel becomes Mic 1, 2, 3… and each line is tagged with the loudest mic."
+                 : "Connect a multi-channel USB-C/Lightning audio interface or mic array to label speakers by microphone. With the built-in mic, group mode uses the pause-based heuristic below.")
+                .font(.scaled(size: 12, relativeTo: .caption1))
+                .foregroundStyle(theme.inkSoft)
+                .lineSpacing(2)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(theme.surfaceLo)
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(theme.line, lineWidth: 1))
+        )
+    }
+
     private var aboutCard: some View {
-        Text("Earshot uses a pause-based heuristic in group mode: when there's a long enough silence between sentences, the next line gets a new \"Speaker N\" label. This isn't real voice fingerprinting (that's a bigger model that's not in v1) — it's a good-enough proxy for casual conversation. 1:1 mode doesn't need labels.")
+        Text("In group mode, if a multi-channel audio interface is connected, Earshot labels each line by the microphone that was loudest — real per-mic separation. Otherwise it falls back to a pause-based heuristic: a long enough silence between sentences starts a new \"Speaker N\". That isn't voice fingerprinting — just a good-enough proxy for casual conversation. 1:1 mode doesn't need labels.")
             .font(.scaled(size: 13, relativeTo: .footnote))
             .foregroundStyle(theme.inkSoft)
             .lineSpacing(3)

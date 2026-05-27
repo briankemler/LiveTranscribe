@@ -49,4 +49,23 @@ struct SpeakerHeuristicTests {
         #expect(s1.colorRole != s2.colorRole)
         #expect(s1.colorRole == s5.colorRole)
     }
+
+    @Test("Speaker.mic labels by microphone number")
+    func micLabels() {
+        let m1 = Speaker.mic(1)
+        #expect(m1.id == "Mic 1")
+        #expect(m1.displayName == "Mic 1")
+        #expect(m1.initial == "1")
+    }
+
+    @Test("Speaker.mic cycles colors like numbered and wraps")
+    func micColors() {
+        let m1 = Speaker.mic(1)
+        let m2 = Speaker.mic(2)
+        let m5 = Speaker.mic(5) // wraps back to m1's role
+        #expect(m1.colorRole != m2.colorRole)
+        #expect(m1.colorRole == m5.colorRole)
+        // Same accent as the numbered speaker of the same index, for visual consistency.
+        #expect(m1.colorRole == Speaker.numbered(1).colorRole)
+    }
 }

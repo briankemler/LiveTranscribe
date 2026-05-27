@@ -7,6 +7,65 @@ Keep under 4000 chars. Latest build notes first.
 
 ---
 
+## Build 25 (1.0)
+
+Group conversations have a new **chat-bubble** look.
+
+### What's new
+- **Group mode** now shows a cozy chat layout: each person's lines appear as **bubbles with a
+  colored avatar**, and the top of the screen shows **avatar + name pills** (the active speaker's
+  pill highlights). The live line you're hearing is shown larger, in the display serif, at the
+  bottom of the feed.
+- This applies to both kinds of group session: named/auto speakers ("Speaker 1, 2, 3…") and the
+  **multi-mic** case from build 24 (each bubble + pill is "Mic 1 / Mic 2 / Mic 3").
+- Ambient sounds (e.g. applause) now appear as a small chip inline in the conversation.
+- The layout adapts to all three palettes (Warm / Midnight / Paper).
+
+### How to test
+- Start a **group** session → you'll see the avatar pills and chat bubbles. (On the built-in mic,
+  speakers are still split by the pause heuristic; with a multi-channel interface they're split by
+  mic — see build 24 notes below.)
+- The **Focus / Feed** toggle in the cog now only appears in **1:1** sessions — group always uses
+  the new bubble layout. 1:1 is unchanged.
+
+### Feedback wanted
+- Bubble sizing/spacing, the avatar pills, and whether the live-line emphasis (serif) feels right.
+
+---
+
+## Build 24 (1.0)
+
+Group mode can now label speakers by **microphone** — real per-mic separation.
+
+### What's new
+- In a **group** session, if you connect a **multi-channel audio interface** (a USB-C/Lightning
+  audio interface or mic array that shows up as one device with several inputs), each input
+  channel becomes **Mic 1 / Mic 2 / Mic 3…**. The top of the screen now shows **mic pills** that
+  light up — the mic currently picking up sound fills with its color, the rest stay dim — and each
+  transcript line is tagged with the mic that was loudest.
+- New readout under **Settings → Captions → Speaker labels → Microphones** shows the detected input
+  and channel count so you can confirm your interface is recognized.
+
+### How to test (needs hardware)
+- This needs a **multi-channel input device** plugged into your iPhone *before* you start a group
+  session. Plug it in → Settings → Speaker labels should show "… · N channels". Start a group
+  session → you'll see N mic pills; talk into each mic and watch its pill light up and the lines
+  get tagged "Mic N".
+- **With just the built-in mic** (no interface), group mode is unchanged — it uses the pause-based
+  "Speaker N" heuristic. So nothing regresses if you don't have an interface.
+
+### Known limits (early)
+- Detection happens at session start — plug the interface in *before* tapping start (hot-swapping
+  mid-session isn't handled yet).
+- One person at a time is attributed cleanly; simultaneous talkers get the loudest mic.
+- Mics are auto-numbered (Mic 1, 2, 3…); renaming them is coming later.
+
+### Also in this build
+- The in-app Privacy Policy now points to its published copy at
+  briankemler.github.io/LiveTranscribe/privacy.
+
+---
+
 ## Build 23 (1.0)
 
 The app is now called **Earshot**.
