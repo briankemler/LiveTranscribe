@@ -13,6 +13,9 @@ struct CaptionsQuickSettingsSheet: View {
     /// Focus/Feed only applies in 1:1 mode — group always uses the cozy bubble layout, so the
     /// parent hides this row there to avoid a no-op control.
     var showLayoutRow: Bool = true
+    /// The speaker-count control only makes sense in group mode (it tunes diarization). The
+    /// parent shows it only there.
+    var showSpeakerCountRow: Bool = false
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
@@ -49,6 +52,10 @@ struct CaptionsQuickSettingsSheet: View {
             // Settings rows, each separated by a hairline matching `theme.line`.
             if showLayoutRow {
                 layoutRow
+                Divider().background(theme.line)
+            }
+            if showSpeakerCountRow {
+                speakerCountRow
                 Divider().background(theme.line)
             }
             textSizeRow
@@ -91,6 +98,41 @@ struct CaptionsQuickSettingsSheet: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(layout.label) layout")
+                    .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+                }
+            }
+            .padding(3)
+            .background(Capsule().fill(theme.bg))
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 10)
+    }
+
+    /// Speakers segmented control — Auto / 1 / 2 / 3 / 4. A fixed count is handed to pyannote as
+    /// a hard constraint, which is far more reliable than auto-estimating how many voices are
+    /// present. Group mode only.
+    private var speakerCountRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("SPEAKERS")
+                .font(.scaled(size: 11, weight: .semibold, relativeTo: .caption2))
+                .tracking(0.5)
+                .foregroundStyle(theme.inkMute)
+
+            HStack(spacing: 6) {
+                ForEach(Tweaks.GroupSpeakerCount.allCases) { option in
+                    let isSelected = tweaks.groupSpeakerCount == option
+                    Button {
+                        tweaks.groupSpeakerCount = option
+                    } label: {
+                        Text(option.label)
+                            .font(.scaled(size: 13, weight: .semibold, relativeTo: .subheadline))
+                            .foregroundStyle(isSelected ? theme.onAccent : theme.inkSoft)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(isSelected ? theme.accent : .clear))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(option == .auto ? "Auto speaker count" : "\(option.label) speakers")
                     .accessibilityAddTraits(isSelected ? [.isSelected] : [])
                 }
             }

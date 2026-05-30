@@ -234,6 +234,14 @@ struct ModelDownloadingView: View {
         }
         defer { kickoff.cancel() }
 
+        // Eagerly fetch the much smaller (~9–22 MB) pyannote diarization models in parallel.
+        // We don't gate the "ready" transition on this — it finishes well before Whisper's
+        // 244 MB, and group-mode diarization loads it lazily anyway if it isn't done yet.
+        let diarizeKickoff = Task {
+            try? await state.diarization.loadModel()
+        }
+        defer { diarizeKickoff.cancel() }
+
         // While the model loads, rotate the teach cards and watch for completion.
         while !Task.isCancelled {
             try? await Task.sleep(for: .milliseconds(reduceMotion ? 1500 : 700))

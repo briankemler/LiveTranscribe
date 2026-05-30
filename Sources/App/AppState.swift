@@ -26,6 +26,9 @@ final class AppState {
     /// Single shared TranscriptionService — model loads once, reused across every Live screen.
     /// Owned here so ModelDownloadingView and LiveView can both observe the same loadState.
     let transcription: TranscriptionService
+    /// Single shared DiarizationService — pyannote speaker-diarization models load once and are
+    /// reused across every group Live screen. Fetched eagerly alongside Whisper on first launch.
+    let diarization: DiarizationService
     /// SwiftData container for conversation history. Views read via `@Query`; `LiveSession`
     /// writes via a `ModelContext` on the shared container.
     let modelContainer: ModelContainer
@@ -42,6 +45,7 @@ final class AppState {
     init() {
         self.tweaks = TweaksStore.load()
         self.transcription = TranscriptionService(network: network)
+        self.diarization = DiarizationService(network: network)
         self.modelContainer = ConversationStore.makeContainer()
         self.onboardingSeen = UserDefaults.standard.bool(forKey: Self.onboardingSeenKey)
         applyLaunchArgs()

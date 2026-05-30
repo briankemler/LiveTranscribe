@@ -6,6 +6,11 @@ struct Tweaks: Sendable, Equatable, Codable {
     var palette: PaletteID = .warm
     var textSize: TextSize = .regular
     var diarization: Diarization = .auto
+    /// Expected number of speakers in group mode. A fixed count is handed to pyannote as a hard
+    /// constraint (`numberOfSpeakers`), which is far more stable than letting it auto-estimate the
+    /// count on short live windows. `.auto` keeps estimation. Adjustable live from the captions
+    /// Quick Settings sheet; persisted.
+    var groupSpeakerCount: GroupSpeakerCount = .auto
     /// Captions screen layout. `.focus` (default) = the teleprompter view: one big current
     /// line + one dim previous line. `.feed` ("Star Wars" internally) = a chat-style
     /// scrolling feed that keeps several past utterances visible and auto-scrolls upward as
@@ -87,6 +92,31 @@ struct Tweaks: Sendable, Equatable, Codable {
         }
     }
 
+    /// Expected speaker count for group-mode diarization. See `Tweaks.groupSpeakerCount`.
+    enum GroupSpeakerCount: String, CaseIterable, Sendable, Identifiable, Codable {
+        case auto, one, two, three, four
+        var id: String { rawValue }
+        /// The hint handed to pyannote — nil for `.auto` (estimate the count).
+        var count: Int? {
+            switch self {
+            case .auto: nil
+            case .one: 1
+            case .two: 2
+            case .three: 3
+            case .four: 4
+            }
+        }
+        var label: String {
+            switch self {
+            case .auto: "Auto"
+            case .one: "1"
+            case .two: "2"
+            case .three: "3"
+            case .four: "4"
+            }
+        }
+    }
+
     enum Diarization: String, CaseIterable, Sendable, Identifiable, Codable {
         case auto, smart, off
         var id: String { rawValue }
@@ -122,6 +152,7 @@ extension Tweaks {
         self.palette               = try c.decodeIfPresent(PaletteID.self,           forKey: .palette)               ?? defaults.palette
         self.textSize              = try c.decodeIfPresent(TextSize.self,            forKey: .textSize)              ?? defaults.textSize
         self.diarization           = try c.decodeIfPresent(Diarization.self,         forKey: .diarization)           ?? defaults.diarization
+        self.groupSpeakerCount     = try c.decodeIfPresent(GroupSpeakerCount.self,   forKey: .groupSpeakerCount)     ?? defaults.groupSpeakerCount
         self.captionLayout         = try c.decodeIfPresent(CaptionLayout.self,       forKey: .captionLayout)         ?? defaults.captionLayout
         self.transcriptionLanguage = try c.decodeIfPresent(TranscriptionLanguage.self, forKey: .transcriptionLanguage) ?? defaults.transcriptionLanguage
         self.translateToEnglish    = try c.decodeIfPresent(Bool.self,                forKey: .translateToEnglish)    ?? defaults.translateToEnglish

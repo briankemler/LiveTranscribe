@@ -205,29 +205,25 @@ struct CaptionsView: View {
             // Spec §"Interaction rules" item 6: close → resume auto-hide.
             revealBar()
         }) {
-            CaptionsQuickSettingsSheet(
-                tweaks: $bindable.tweaks,
-                openAllSettings: { state.push(.settings) },
-                showLayoutRow: mode == .oneToOne
-            )
-            // Build-14: fitted height detent so the captions stay visible above the sheet.
-            // `[.medium, .large]` covered ~50% of the screen for 4 rows of content. 380 pt
-            // is grabber + title + 4 rows + bottom safe area at default Dynamic Type. At
-            // AX5 the sheet's internal content scrolls rather than spilling.
-            .presentationDetents([.height(450)])
-            .presentationBackground(theme.surface)
-            .presentationDragIndicator(.hidden)  // we draw our own grabber
+            quickSettingsSheet
         }
         // Receive a new tick once per second; cheap recompute of elapsed/silence values.
         .onReceive(ticker) { tickerNow = $0 }
 
         // MARK: Session lifecycle (same wiring as the old LiveView)
         .task {
-            let s = LiveSession(mode: mode, transcription: state.transcription, modelContext: modelContext)
+            let s = LiveSession(
+                mode: mode,
+                transcription: state.transcription,
+                diarization: state.diarization,
+                modelContext: modelContext
+            )
             s.language = tweaks.transcriptionLanguage.whisperCode
             s.translateToEnglish = tweaks.translateToEnglish
             s.armedSounds = tweaks.armedSounds
             s.soundRecognitionEnabled = tweaks.soundRecognitionEnabled
+            s.diarizationEnabled = tweaks.diarization != .off
+            s.speakerCountHint = tweaks.groupSpeakerCount.count
             session = s
 #if DEBUG
             // App Store screenshot path: `--demo-captions` seeds scripted lines and skips the
@@ -262,10 +258,11 @@ struct CaptionsView: View {
             ambientClearTask?.cancel()
             session?.stop()
         }
-        .onChange(of: tweaks.transcriptionLanguage) { _, v in session?.language = v.whisperCode }
-        .onChange(of: tweaks.translateToEnglish)   { _, v in session?.translateToEnglish = v }
-        .onChange(of: tweaks.armedSounds)          { _, v in session?.armedSounds = v }
-        .onChange(of: tweaks.soundRecognitionEnabled) { _, v in session?.soundRecognitionEnabled = v }
+        // One handler syncs every live-adjustable tweak onto the running session. Consolidated
+        // from six separate `.onChange(of:)` modifiers — the generic chain was tipping the body
+        // over the type-checker's complexity limit. Setting all fields each time is cheap and
+        // idempotent.
+        .onChange(of: tweaks) { _, t in syncSession(with: t) }
         .onChange(of: session?.soundRecognition.lastAmbientDetection) { _, detection in
             // Build-14: route non-urgent classifier hits to the margin tag. We don't push
             // an alert and we don't persist detections (only urgent detections go to the
@@ -452,6 +449,35 @@ struct CaptionsView: View {
             .accessibilityHidden(true)
     }
 
+    /// Push every live-adjustable tweak onto the running session. Called from a single
+    /// `.onChange(of: tweaks)` so the body stays simple. Idempotent.
+    private func syncSession(with t: Tweaks) {
+        guard let s = session else { return }
+        s.language = t.transcriptionLanguage.whisperCode
+        s.translateToEnglish = t.translateToEnglish
+        s.armedSounds = t.armedSounds
+        s.soundRecognitionEnabled = t.soundRecognitionEnabled
+        s.diarizationEnabled = t.diarization != .off
+        s.speakerCountHint = t.groupSpeakerCount.count
+    }
+
+    /// Quick-settings bottom sheet content. Extracted from `body` so the type-checker doesn't
+    /// time out on the already-large body expression.
+    private var quickSettingsSheet: some View {
+        @Bindable var bindable = state
+        return CaptionsQuickSettingsSheet(
+            tweaks: $bindable.tweaks,
+            openAllSettings: { state.push(.settings) },
+            showLayoutRow: mode == .oneToOne,
+            showSpeakerCountRow: mode == .group
+        )
+        // Fitted height detent so the captions stay visible above the sheet. At AX5 the sheet's
+        // internal content scrolls rather than spilling.
+        .presentationDetents([.height(450)])
+        .presentationBackground(theme.surface)
+        .presentationDragIndicator(.hidden)  // we draw our own grabber
+    }
+
     // MARK: - Group roster + chat bubbles (cozy layout)
 
     /// Speakers to show as roster pills. Multi-mic → one per connected mic (Mic 1…N, all shown so
@@ -459,6 +485,11 @@ struct CaptionsView: View {
     private var rosterSpeakers: [Speaker] {
         if let s = session, s.usesMicDiarization {
             return (1...max(1, s.micCount)).map { Speaker.mic($0) }
+        }
+        // Fixed speaker count → a deterministic roster of exactly N pills (Speaker 1…N), shown
+        // from the start rather than appearing as voices are detected.
+        if mode == .group, let n = tweaks.groupSpeakerCount.count {
+            return (1...n).map { Speaker.numbered($0) }
         }
         var order: [Speaker] = []
         var seen = Set<String>()
@@ -477,40 +508,38 @@ struct CaptionsView: View {
         return currentLine?.speaker.id
     }
 
-    /// Cozy roster: a single-line strip of compact avatar+name pills. The active speaker's pill is
-    /// tinted with their color; the rest are quiet surface capsules. Scrolls horizontally if there
-    /// are more pills than fit, so it never wraps into a second row or gets clipped at the top.
+    /// Cozy roster: compact avatar+name pills for each speaker. The active speaker's pill is tinted
+    /// with their color; the rest are quiet surface capsules. Uses `FlowLayout` so every pill is
+    /// visible — it wraps onto a second row rather than scrolling off-screen (the old horizontal
+    /// strip clipped the 4th speaker). With ≤ 4 speakers this is one or two rows.
     private var cozyRoster: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 7) {
-                ForEach(rosterSpeakers) { speaker in
-                    let color = tweaks.showSpeakerColors ? speaker.color(in: theme) : theme.inkSoft
-                    let isActive = activeSpeakerId == speaker.id
-                    HStack(spacing: 6) {
-                        Text(speaker.initial)
-                            .font(.scaled(size: 9, weight: .heavy, relativeTo: .caption2))
-                            .foregroundStyle(.white)
-                            .frame(width: 19, height: 19)
-                            .background(Circle().fill(color))
-                        Text(speaker.displayName)
-                            .font(.scaled(size: 12, weight: .semibold, relativeTo: .caption1))
-                            .foregroundStyle(isActive ? theme.ink : theme.inkSoft)
-                            .lineLimit(1)
-                            .fixedSize()
-                    }
-                    .padding(.leading, 4)
-                    .padding(.trailing, 11)
-                    .padding(.vertical, 4)
-                    .background(Capsule().fill(isActive ? color.opacity(0.16) : theme.surface))
-                    .overlay(Capsule().stroke(isActive ? color : theme.line, lineWidth: 1))
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(speaker.displayName)\(isActive ? ", speaking" : "")")
+        FlowLayout(spacing: 7, lineSpacing: 7) {
+            ForEach(rosterSpeakers) { speaker in
+                let color = tweaks.showSpeakerColors ? speaker.color(in: theme) : theme.inkSoft
+                let isActive = activeSpeakerId == speaker.id
+                HStack(spacing: 6) {
+                    Text(speaker.initial)
+                        .font(.scaled(size: 9, weight: .heavy, relativeTo: .caption2))
+                        .foregroundStyle(.white)
+                        .frame(width: 19, height: 19)
+                        .background(Circle().fill(color))
+                    Text(speaker.displayName)
+                        .font(.scaled(size: 12, weight: .semibold, relativeTo: .caption1))
+                        .foregroundStyle(isActive ? theme.ink : theme.inkSoft)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
+                .padding(.leading, 4)
+                .padding(.trailing, 11)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(isActive ? color.opacity(0.16) : theme.surface))
+                .overlay(Capsule().stroke(isActive ? color : theme.line, lineWidth: 1))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(speaker.displayName)\(isActive ? ", speaking" : "")")
             }
-            .padding(.vertical, 2)  // breathing room so the active stroke isn't clipped
         }
-        .scrollClipDisabled()
         .animation(.easeInOut(duration: 0.25), value: activeSpeakerId)
+        .animation(.easeInOut(duration: 0.25), value: rosterSpeakers)
     }
 
     /// Chat-style bubble transcript for group mode: one bubble per finalized line plus the live
