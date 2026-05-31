@@ -5,6 +5,13 @@ App Store Connect → TestFlight → iOS Builds → build N → "Test Informatio
 
 Keep under 4000 chars. Latest build notes first.
 
+> **Guideline 2.3.10 note.** App Store review (separate from TestFlight beta review) rejects
+> any listing copy that names competing mobile platforms — Google, Android, Google Play, "Live
+> Transcribe" as a product name, etc. The App Store listing copy lives in `AppStoreMetadata.md`
+> and has been de-named accordingly. **If you ever paste build notes into an App Store
+> submission (e.g. "What's New" for a future update), scrub them against the same rule first.**
+> The de-named heritage phrasing in `AppStoreMetadata.md` is the canonical version.
+
 ---
 
 ## Build 27 (1.0)
@@ -121,7 +128,13 @@ The app is now called **Earshot**.
 - Nothing functional changed — same captions, same on-device transcription, same sound recognition. This is purely the rename.
 
 ### Why
-"Live Transcribe" is Google's trademark (it's the name of their Android app), so it was never a safe name to ship under. "Earshot" was screened for conflicts and is clear for this space. It's also just a better name for what the app does — reading what's within earshot.
+"Live Transcribe" was the working title during the prototype phase but wasn't a name we could safely ship under — it's trademarked elsewhere in an adjacent space. "Earshot" was screened for conflicts and is clear here. It's also just a better name for what the app does — reading what's within earshot.
+
+> **Editorial note (added after build 23 was submitted to the App Store).** The original
+> phrasing of this section named the trademark holder and another mobile platform; that
+> phrasing is the kind of copy that triggers Guideline 2.3.10 on App Store review. It's been
+> rewritten here so this doc is safe to crib from for future submissions. See the top-of-file
+> note and `AppStoreMetadata.md`.
 
 ### Note
 - Your saved transcripts, starred conversations, and settings all carry over — the rename doesn't touch stored data. If you had the app installed under the old name, it updates in place (same app, new label under the icon).

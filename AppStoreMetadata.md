@@ -28,12 +28,17 @@ Alternative subtitles to A/B if 23 feels generic:
 
 ## Promotional Text (170 char max, updatable any time)
 
-**RECOMMENDED (heritage hook):**
+**RECOMMENDED (heritage hook, de-named for Guideline 2.3.10):**
 
 ```
-Free, private, on-device captions — by a PM behind Android's Live Transcribe. 99 languages, translate to English, ambient-sound alerts. No ads, no cloud, no sign-up.
+Free, private, on-device captions — built by an accessibility PM. 99 languages, translate to English, ambient-sound alerts. No ads, no cloud, no sign-up.
 ```
-(167 chars)
+(153 chars — Apple counts em-dash as one char.)
+
+NOTE on 2.3.10: an earlier version named Android / Google Live Transcribe directly as the
+"heritage hook" — that triggered a Guideline 2.3.10 (Accurate Metadata) rejection because
+Apple does not allow naming other mobile platforms in App Store listing copy. The
+de-named phrasing above keeps the credibility angle without naming a competing platform.
 
 Alternatives:
 
@@ -57,9 +62,9 @@ TestFlight "What to Test".
 ```
 Earshot is real-time, on-device captioning for iPhone — for conversations, lectures, doctor visits, anywhere you want to read what's being said.
 
-A bit of backstory. In 2019, a team at Google spent nine months building Android's Live Transcribe — a free app that captions speech and ambient sound in real time, inspired by a Deaf researcher who'd spent his career on captioning. It launched at Google I/O, became one of the most-adopted accessibility apps Google ever shipped, and came preloaded on billions of Android devices. I was one of two product managers on it.
+A bit of backstory. Earlier in my career, I was one of two product managers on a free, real-time captioning app for the deaf and hard-of-hearing — inspired by a Deaf researcher who'd spent his career on captioning. It became one of the most-adopted accessibility apps I've ever worked on and reached hundreds of millions of people.
 
-Google never shipped Live Transcribe on iOS, and nothing has truly filled the gap. There are lookalikes, but few are genuinely free, private, and multilingual all at once — many charge, upsell, or send your audio to the cloud. Having a disability shouldn't cost you money or your privacy. So I built Earshot.
+Nothing equivalent has shipped on iPhone. The captioning apps that are available are useful, but few are genuinely free, private, and multilingual all at once — many charge, upsell, or send your audio to the cloud. Having a disability shouldn't cost you money or your privacy. So I built Earshot.
 
 • Free — no sign-up, no sign-in, no ads, no upsells.
 • Private — everything runs on your device. The only network call is to download and update the local speech model (OpenAI's Whisper).
@@ -69,7 +74,7 @@ Google never shipped Live Transcribe on iOS, and nothing has truly filled the ga
 
 All speech recognition runs locally with OpenAI's Whisper. Word Error Rate — the standard accuracy benchmark — is about 8.6% for the "small" English model; it runs higher for other languages, especially long-tail ones. Earshot also ships the tiny and base models, which are blazingly fast and work well on older iPhones — in testing they held up on accuracy too.
 
-Accessibility tools shouldn't themselves be inaccessible. Free should mean free. Private should mean private. That's the standard the original Live Transcribe set on Android, and iOS users deserve the same.
+Accessibility tools shouldn't themselves be inaccessible. Free should mean free. Private should mean private. iPhone users deserve that standard too.
 
 WHAT IT DOES
 • Real-time captions in a clean, focused screen, plus a chat-style "feed" layout. Tap the cog for text size, vibration, and ambient-sound options.
@@ -151,9 +156,9 @@ The App Store age questionnaire — recommended answers:
 
 ## App Review Information
 
-Notes for the reviewer — paste into App Review → Notes (plain text; ~3,536 chars, under the
-4,000 limit). Written to preempt the likely rejection triggers: the first-launch network
-download, the Google/"Live Transcribe" references, and the safety-sound feature.
+Notes for the reviewer — paste into App Review → Notes (plain text; under the 4,000-char
+limit). Written to preempt the likely review questions: the first-launch network download
+and the safety-sound feature.
 
 ```
 ABOUT EARSHOT
@@ -183,9 +188,6 @@ HOW TO TEST
 
 APP NAME
 The App Store listing name is "Earshot Live Transcription." The Home-screen icon label (CFBundleDisplayName) is the shorter "Earshot." Both refer to the same app.
-
-NOT AFFILIATED WITH GOOGLE
-Earshot is an independent app and is not affiliated with, endorsed by, or connected to Google or Android's "Live Transcribe." The description references Google's Live Transcribe historically/descriptively; "Live Transcription" in the title is used in its ordinary descriptive sense. The developer's prior role as a product manager on Android Live Transcribe is stated only as factual background.
 
 SOUND ALERTS ARE ASSISTIVE, NOT A CERTIFIED SAFETY DEVICE
 The urgent-sound alerts (smoke alarm, carbon monoxide, etc.) are a best-effort assistive feature, not a substitute for certified alarms or medical/safety equipment. The app makes no medical claims.
