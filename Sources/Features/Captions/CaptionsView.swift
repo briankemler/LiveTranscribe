@@ -78,7 +78,9 @@ struct CaptionsView: View {
     private var currentText: String {
         if let line = currentLine { return line.text }
         guard let s = session else { return "Starting up…" }
-        if s.error != nil { return "Microphone unavailable. Open Settings to grant access." }
+        // Show the session's own friendly, classified message (permission vs model vs audio).
+        // Never the raw error string — that leaked an internal file path on screen.
+        if let e = s.error { return e }
         switch s.transcription.loadState {
         case .waitingForWifi:
             return "Waiting for Wi-Fi to download the model."
@@ -86,11 +88,31 @@ struct CaptionsView: View {
             return "Downloading on-device model… \(Int(p * 100))%"
         case .compiling:
             return "Compiling for Neural Engine."
-        case .failed(let msg):
-            return "Couldn't load the model. \(msg)"
+        case .failed:
+            return "Couldn't prepare the speech model. Open controls to retry."
         case .idle, .ready:
             return "Listening…"
         }
+    }
+
+    /// Recovery control in the error banner — Settings for a permission failure, Retry otherwise.
+    @ViewBuilder private var errorActionButton: some View {
+        if session?.failureKind == .permission {
+            Button("Settings") { openAppSettings() }
+                .font(.scaled(size: 11, weight: .heavy, relativeTo: .caption2))
+                .foregroundStyle(theme.accent)
+                .accessibilityLabel("Open Settings")
+        } else if session?.error != nil {
+            Button("Retry") { Task { await session?.retry() } }
+                .font(.scaled(size: 11, weight: .heavy, relativeTo: .caption2))
+                .foregroundStyle(theme.accent)
+                .accessibilityLabel("Retry")
+        }
+    }
+
+    private func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 
     // MARK: - Body
@@ -174,15 +196,20 @@ struct CaptionsView: View {
                 .padding(.bottom, 16)
             }
 
-            // Error banner if the audio pipeline failed to start (e.g. mic denied).
+            // Error banner if the pipeline failed to start, with a recovery action matched to the
+            // failure kind: Settings for a permission problem, Retry for a model/audio problem.
             if let err = session?.error {
                 VStack {
-                    Text(err)
-                        .font(.scaled(size: 11, relativeTo: .caption2))
-                        .foregroundStyle(theme.alert)
-                        .padding(.horizontal, 12).padding(.vertical, 6)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(theme.alertSoft)
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(err)
+                            .font(.scaled(size: 11, relativeTo: .caption2))
+                            .foregroundStyle(theme.alert)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        errorActionButton
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(theme.alertSoft)
                     Spacer()
                 }
                 .padding(.top, 80)

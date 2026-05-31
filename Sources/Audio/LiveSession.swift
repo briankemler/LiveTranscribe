@@ -45,8 +45,16 @@ final class LiveSession {
         return true
     }
 
-    /// Surfaced error message if the pipeline has failed; nil while healthy.
+    /// What kind of failure stopped the pipeline — drives both the message and the recovery
+    /// action the UI offers (Open Settings vs Retry). Distinguishing these matters: App Review
+    /// rejected us because a *model-load* failure was shown as a *microphone-permission* error.
+    enum FailureKind: Sendable, Equatable { case permission, model, audio }
+
+    /// User-facing error message if the pipeline has failed; nil while healthy. Never a raw
+    /// `Error` description / file path — those are logged, not shown.
     private(set) var error: String?
+    /// Classification of the current `error`, for the UI's recovery affordance.
+    private(set) var failureKind: FailureKind?
 
     // MARK: - Microphones (multi-channel input)
 
@@ -234,12 +242,24 @@ final class LiveSession {
                 _ = await audio.requestPermission()
             }
             guard audio.permission == .granted else {
-                error = "Microphone permission was denied. Open Settings to grant access."
+                error = "Microphone access is off. Open Settings to turn it on for Earshot."
+                failureKind = .permission
                 return
             }
 
-            // 2. Model load (no-op if AppState already kicked it off)
-            try await transcription.loadModel()
+            // 2. Model load (no-op if AppState already kicked it off). A failure here is a model
+            //    problem (download incomplete, compile failed) — NOT a microphone problem. Report
+            //    it as such; the old code surfaced every error as "Microphone unavailable", which
+            //    is what got us rejected (reviewer granted mic, still saw a mic error).
+            do {
+                try await transcription.loadModel()
+            } catch {
+                log.error("model load failed: \(String(describing: error))")
+                self.error = "Couldn't prepare the speech model. Check your internet connection, then tap Retry."
+                failureKind = .model
+                stop()
+                return
+            }
 
             // 2b. Warm the diarization model in the background so the first pass isn't stalled
             //     on Core ML compile. Fire-and-forget — `diarize()` lazy-loads anyway if needed.
@@ -282,9 +302,22 @@ final class LiveSession {
             }
             await pipelineTask?.value
         } catch {
-            self.error = String(describing: error)
+            // Audio-session / engine failure (not permission, not model). Log the raw cause;
+            // show a friendly, actionable message.
+            log.error("audio pipeline failed to start: \(String(describing: error))")
+            self.error = "Couldn't start listening. Tap Retry, or check that no other app is using the microphone."
+            failureKind = .audio
             stop()
         }
+    }
+
+    /// Clear the current failure and re-run the full boot sequence. Used by the captions error
+    /// banner's Retry button — a model download that came back incomplete now re-downloads to
+    /// repair (see `TranscriptionService.isModelComplete`), and a transient audio failure retries.
+    func retry() async {
+        error = nil
+        failureKind = nil
+        await start()
     }
 
     func pause() {

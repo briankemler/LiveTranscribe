@@ -132,6 +132,38 @@ final class TranscriptionService {
         })
     }
 
+    /// The compiled Core ML components every WhisperKit model folder must contain to load. A
+    /// folder can exist but be missing these if a download was interrupted (network drop, app
+    /// killed mid-download) — which is exactly the App Review failure: the folder was present so
+    /// we skipped re-downloading, then `WhisperKit(...)` threw "Model file not found at …
+    /// MelSpectrogram.mlmodelc". We check for these before trusting an on-disk model.
+    nonisolated private static let requiredModelComponents = [
+        "MelSpectrogram.mlmodelc",
+        "AudioEncoder.mlmodelc",
+        "TextDecoder.mlmodelc",
+    ]
+
+    /// True only if `name`'s folder exists AND contains every required compiled component as a
+    /// non-empty directory. A `false` here means "(re)download to repair," not just "absent."
+    nonisolated static func isModelComplete(_ name: String) -> Bool {
+        let fm = FileManager.default
+        let folder = cacheRootURL.appendingPathComponent(name)
+        var isDir: ObjCBool = false
+        guard fm.fileExists(atPath: folder.path, isDirectory: &isDir), isDir.boolValue else {
+            return false
+        }
+        for component in requiredModelComponents {
+            let url = folder.appendingPathComponent(component)
+            var compIsDir: ObjCBool = false
+            guard fm.fileExists(atPath: url.path, isDirectory: &compIsDir), compIsDir.boolValue,
+                  let contents = try? fm.contentsOfDirectory(atPath: url.path), !contents.isEmpty
+            else {
+                return false
+            }
+        }
+        return true
+    }
+
     // MARK: - Model lifecycle
 
     /// Delete a cached model from disk to free space. Refuses to delete the currently-loaded model
@@ -198,7 +230,10 @@ final class TranscriptionService {
 
         // Wi-Fi gate: if we'd need to download (not already cached) and we're on cellular,
         // surface the wait state instead of burning the user's data plan.
-        let alreadyOnDisk = downloadedModels.contains(modelName)
+        // NOTE: completeness, not mere folder-existence — a partially-downloaded model folder
+        // must be re-downloaded to repair it, or `WhisperKit(...)` fails with "Model file not
+        // found". This was the App Review rejection.
+        let alreadyOnDisk = Self.isModelComplete(modelName)
         if !alreadyOnDisk && !allowCellular && !network.isOnWifi {
             loadState = .waitingForWifi
             return
@@ -253,6 +288,13 @@ final class TranscriptionService {
                     self.loadState = .ready
                 }
             } catch {
+                // If we trusted an on-disk model and it still failed to load, the cache is
+                // corrupt/incomplete in a way our component check didn't catch. Remove it so the
+                // next attempt re-downloads a clean copy — otherwise the user is stuck forever.
+                if alreadyOnDisk {
+                    try? FileManager.default.removeItem(at: cachedFolder)
+                    self.downloadedModels.remove(target)
+                }
                 self.loadState = .failed(message: String(describing: error))
                 throw error
             }

@@ -14,6 +14,30 @@ Keep under 4000 chars. Latest build notes first.
 
 ---
 
+## Build 31 (1.0)
+
+Real speaker diarization in group mode, plus a fix for a model-download bug that could show a false "microphone unavailable" error.
+
+### Group mode now tells speakers apart (software diarization)
+- Group transcripts now use on-device **voice-based speaker labels** (Speaker 1, 2, 3…) via
+  pyannote models, instead of the old pause-counting guess. Speaker pills no longer cycle
+  rapidly — a speaker stays on their own label.
+- New **"How many people?"** control in the captions controls sheet (Auto / 1 / 2 / 3 / 4).
+  Setting the actual count makes labeling much more accurate. Try setting it to the real number.
+- Speaker pills now wrap to fit instead of clipping the 4th one.
+
+### Model-download reliability (fixes an App Review rejection)
+- If the first-launch model download is interrupted, the app now **detects the incomplete model
+  and re-downloads to repair it** instead of failing.
+- A model/download problem now shows an accurate message with a **Retry** button — it's no
+  longer mislabeled as a microphone error.
+
+### What to test
+- Group mode with 2–4 people; set the speaker count and check labels stay stable.
+- Let the model finish downloading on first launch; transcription should start cleanly.
+
+---
+
 ## Build 27 (1.0)
 
 More group-screen polish + a heads-up about mixed-signal mics.

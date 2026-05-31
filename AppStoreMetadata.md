@@ -161,6 +161,12 @@ limit). Written to preempt the likely review questions: the first-launch network
 and the safety-sound feature.
 
 ```
+RESUBMISSION — RESPONSE TO PREVIOUS REJECTION (Guideline 2.1, build 28)
+The prior build could show "Microphone unavailable" even after microphone access was granted. Root cause: if the first-launch model download was interrupted, the partially-downloaded model was mistakenly treated as complete, so transcription failed to load — and that model failure was incorrectly displayed as a microphone error. This is fixed in this build:
+- The app now verifies the on-device model is fully downloaded and automatically re-downloads to repair a partial/interrupted download.
+- A model/download failure now shows an accurate message with a "Retry" action and is never reported as a microphone problem.
+To reproduce the fix: grant microphone access, then allow the on-device model to finish downloading on a stable Wi-Fi connection (a "Downloading on-device model…" progress screen is shown). If a download is interrupted, tapping "Start listening" again — or the in-app Retry — resumes and repairs it.
+
 ABOUT EARSHOT
 Earshot is a real-time, on-device live-captioning and sound-recognition app for the deaf and hard-of-hearing (and anyone who wants to read along). It captions nearby speech, can translate 99 languages into English, and recognizes environmental sounds (e.g., smoke alarm, doorbell) with on-screen alerts.
 
