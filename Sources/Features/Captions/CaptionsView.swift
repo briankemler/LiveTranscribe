@@ -21,6 +21,7 @@ struct CaptionsView: View {
     @Environment(\.tweaks) private var tweaks
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var session: LiveSession?
     @State private var barVisible: Bool = false
@@ -225,6 +226,7 @@ struct CaptionsView: View {
             s.diarizationEnabled = tweaks.diarization != .off
             s.speakerCountHint = tweaks.groupSpeakerCount.count
             session = s
+            updateKeepAwake()  // keep the screen awake now that captioning is starting
 #if DEBUG
             // App Store screenshot path: `--demo-captions` seeds scripted lines and skips the
             // real mic + model pipeline (the Simulator can't capture audio). Debug-only.
@@ -257,7 +259,13 @@ struct CaptionsView: View {
             hideBarTask?.cancel()
             ambientClearTask?.cancel()
             session?.stop()
+            // Leaving the captions screen → restore the device's normal Auto-Lock.
+            UIApplication.shared.isIdleTimerDisabled = false
         }
+        // Keep-awake: re-evaluate whenever the app foregrounds/backgrounds or the session
+        // errors out, so the screen only stays lit while we're actually captioning up front.
+        .onChange(of: scenePhase) { _, _ in updateKeepAwake() }
+        .onChange(of: session?.error) { _, _ in updateKeepAwake() }
         // One handler syncs every live-adjustable tweak onto the running session. Consolidated
         // from six separate `.onChange(of:)` modifiers — the generic chain was tipping the body
         // over the type-checker's complexity limit. Setting all fields each time is cheap and
@@ -447,6 +455,13 @@ struct CaptionsView: View {
             .opacity((barVisible || settingsOpen) ? 0 : 1)
             .animation(.easeInOut(duration: 0.3), value: barVisible)
             .accessibilityHidden(true)
+    }
+
+    /// Keep the screen awake while the captions screen is foreground and the session is
+    /// healthy (no mic/permission error), so the display never dims or locks mid-conversation.
+    /// `.onDisappear` resets this to `false`, so normal Auto-Lock resumes everywhere else.
+    private func updateKeepAwake() {
+        UIApplication.shared.isIdleTimerDisabled = (scenePhase == .active && session?.error == nil)
     }
 
     /// Push every live-adjustable tweak onto the running session. Called from a single
