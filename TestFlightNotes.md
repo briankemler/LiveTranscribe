@@ -14,7 +14,7 @@ Keep under 4000 chars. Latest build notes first.
 
 ---
 
-## Build 31 (1.0)
+## Build 32 (1.0)
 
 Real speaker diarization in group mode, plus a fix for a model-download bug that could show a false "microphone unavailable" error.
 
