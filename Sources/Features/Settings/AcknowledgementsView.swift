@@ -30,6 +30,20 @@ struct AcknowledgementsView: View {
             url: URL(string: "https://github.com/openai/whisper")
         ),
         Credit(
+            name: "SpeakerKit",
+            attribution: "Argmax, Inc.",
+            summary: "On-device speaker diarization (who-spoke-when), part of the WhisperKit package. Powers group-mode speaker labels. Models are downloaded on first use and cached on-device.",
+            licenseName: "MIT License",
+            url: URL(string: "https://github.com/argmaxinc/WhisperKit")
+        ),
+        Credit(
+            name: "pyannote.audio",
+            attribution: "Hervé Bredin et al.",
+            summary: "Speaker segmentation and embedding model architecture underlying SpeakerKit's diarization, run locally via Core ML. No audio leaves the device.",
+            licenseName: "MIT License",
+            url: URL(string: "https://github.com/pyannote/pyannote-audio")
+        ),
+        Credit(
             name: "SoundAnalysis",
             attribution: "Apple Inc.",
             summary: "Built-in iOS framework. Powers on-device urgent-sound detection (smoke alarm, doorbell, baby crying, …). Ships with the OS.",
