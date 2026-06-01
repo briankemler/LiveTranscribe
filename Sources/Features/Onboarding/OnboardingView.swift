@@ -7,8 +7,12 @@ struct OnboardingView: View {
     @Environment(AppState.self) private var state
     @Environment(\.theme) private var theme
 
-    /// Tracks whether step 2's "Allow microphone" button is currently waiting on the iOS
-    /// permission prompt. While true we disable the button so the user can't double-tap.
+    /// Tracks whether step 2's "Continue" button is currently waiting on the iOS permission
+    /// prompt. While true we disable the button so the user can't double-tap.
+    ///
+    /// Per App Review Guideline 5.1.1(iv): the pre-permission priming screen's button must use
+    /// neutral wording ("Continue"/"Next"), not "Allow", since the actual grant decision belongs
+    /// to the system prompt. The button still triggers `requestRecordPermission()` on tap.
     @State private var isRequestingMic = false
 
     private var content: StepContent { StepContent.all[step] }
@@ -137,8 +141,8 @@ private struct StepContent {
             kicker: "PRIVACY",
             lead: "What happens here,",
             accent: "stays here.",
-            body: "The Whisper model lives on your phone so conversations stay here.",
-            cta: "Allow microphone",
+            body: "Earshot uses the microphone to caption the conversation around you. The Whisper model runs on your phone, so audio stays here and never leaves your device.",
+            cta: "Continue",
             visualKind: .privacy
         ),
         StepContent(

@@ -426,7 +426,7 @@ Big polish round. Three things to actually try:
 - **Alert haptic.** When a smoke alarm (or other urgent sound) fires, you'll feel a strong error haptic alongside the alert screen.
 - **Send feedback** row in Settings → About opens Mail with version + device info pre-filled.
 - **Sound classifier diagnostics** screen in Settings → Developer lets you verify which Apple classifier IDs are available on this iOS.
-- **Onboarding step 2** now actually triggers the iOS mic permission prompt when you tap "Allow microphone."
+- **Onboarding step 2** now actually triggers the iOS mic permission prompt when you tap "Continue."
 
 ### Known limitations
 - Real audio rewind (scrubbing playback) isn't implemented — Rewind is text-only with timestamps for now.

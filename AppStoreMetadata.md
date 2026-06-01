@@ -161,11 +161,9 @@ limit). Written to preempt the likely review questions: the first-launch network
 and the safety-sound feature.
 
 ```
-RESUBMISSION — RESPONSE TO PREVIOUS REJECTION (Guideline 2.1, build 28)
-The prior build could show "Microphone unavailable" even after microphone access was granted. Root cause: if the first-launch model download was interrupted, the partially-downloaded model was mistakenly treated as complete, so transcription failed to load — and that model failure was incorrectly displayed as a microphone error. This is fixed in this build:
-- The app now verifies the on-device model is fully downloaded and automatically re-downloads to repair a partial/interrupted download.
-- A model/download failure now shows an accurate message with a "Retry" action and is never reported as a microphone problem.
-To reproduce the fix: grant microphone access, then allow the on-device model to finish downloading on a stable Wi-Fi connection (a "Downloading on-device model…" progress screen is shown). If a download is interrupted, tapping "Start listening" again — or the in-app Retry — resumes and repairs it.
+RESUBMISSION — RESPONSE TO PREVIOUS REJECTION (Guideline 5.1.1(iv), build 33)
+The previous build's onboarding privacy screen used a button labeled "Allow microphone" before the system permission prompt. Per your guidance, that button is now labeled "Continue" — it no longer uses wording that pre-empts the permission decision. The screen explains why the microphone is used; the actual Allow/Don't Allow choice is made entirely in the iOS system prompt that follows. No other permission-priming buttons in the app use directive wording.
+(The prior Guideline 2.1 issue — a misleading "microphone unavailable" message caused by an interrupted model download — was resolved in build 32: the on-device model now self-repairs incomplete downloads, and model errors are reported accurately with a Retry action, never as a microphone problem.)
 
 ABOUT EARSHOT
 Earshot is a real-time, on-device live-captioning and sound-recognition app for the deaf and hard-of-hearing (and anyone who wants to read along). It captions nearby speech, can translate 99 languages into English, and recognizes environmental sounds (e.g., smoke alarm, doorbell) with on-screen alerts.
@@ -185,7 +183,7 @@ MICROPHONE PERMISSION
 Requested with: "Earshot uses the microphone on this device to caption nearby speech and recognize sounds. Audio is processed entirely on-device and never leaves your phone." Required for captioning and sound recognition; if denied, the app degrades gracefully and points the user to Settings.
 
 HOW TO TEST
-1. Launch the app and complete the brief onboarding; tap "Allow microphone" when prompted.
+1. Launch the app and complete the brief onboarding; tap "Continue" on the privacy screen, then choose Allow in the iOS microphone prompt.
 2. On first launch, wait for the Whisper model to finish downloading (needs a network connection; ~244 MB).
 3. From Home, tap "Start listening."
 4. Speak near the device — captions appear in real time. Please test on a physical device: the iOS Simulator does not capture microphone input, so captions will not populate there.
