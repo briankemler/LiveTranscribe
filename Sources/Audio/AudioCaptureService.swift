@@ -157,15 +157,22 @@ final class AudioCaptureService {
         do {
             // `.record` (not `.playAndRecord`) keeps the input chain simple and avoids the
             // `.duckOthers` + speaker-output route quirks that were eating mic input on device.
-            // Bluetooth HFP stays allowed so AirPods etc. work.
+            // No `.allowBluetoothHFP`: a Bluetooth input (a hearing aid, AirPods, a BT headset)
+            // would otherwise become the capture route and deliver little or no audio — and force
+            // narrowband HFP — which is the wrong mic for captioning the room. We want the iPhone's
+            // own mic (or a wired interface) listening near the speaker. See `preferDeviceMic`.
             try session.setCategory(
                 .record,
                 mode: .default,
-                options: [.allowBluetoothHFP]
+                options: []
             )
             try session.setPreferredSampleRate(targetSampleRate)
             try session.setPreferredIOBufferDuration(0.1) // ~100 ms tap callbacks
             try session.setActive(true, options: [])
+
+            // Force capture onto the built-in mic (or a wired/USB multi-channel interface), so a
+            // connected Bluetooth hearing aid / AirPods can't hijack the input and record silence.
+            preferDeviceMic(session)
 
             // Ask iOS to expose EVERY input channel the device offers. Without this, a
             // multi-channel USB receiver (e.g. a 4-mic wireless system) is handed to us as a
@@ -179,6 +186,23 @@ final class AudioCaptureService {
             }
         } catch {
             throw CaptureError.sessionConfigurationFailed(error)
+        }
+    }
+
+    /// Pin the capture input to a device mic rather than letting Bluetooth take it. A wired/USB
+    /// multi-channel interface (the intentional multi-mic path) wins when present; otherwise the
+    /// built-in mic. This is what fixes the "mic isn't capturing" report from users wearing a
+    /// Bluetooth hearing aid — those devices grab the input route but deliver no usable audio.
+    private func preferDeviceMic(_ session: AVAudioSession) {
+        guard let inputs = session.availableInputs else { return }
+        let wired = inputs.first { [.usbAudio, .lineIn].contains($0.portType) }
+        let builtIn = inputs.first { $0.portType == .builtInMic }
+        guard let preferred = wired ?? builtIn else { return }
+        do {
+            try session.setPreferredInput(preferred)
+            log.info("preferred input set to \(preferred.portName) (\(preferred.portType.rawValue))")
+        } catch {
+            log.error("setPreferredInput failed: \(String(describing: error))")
         }
     }
 
