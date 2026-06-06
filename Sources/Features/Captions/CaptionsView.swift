@@ -253,7 +253,10 @@ struct CaptionsView: View {
             quickSettingsSheet
         }
         // Receive a new tick once per second; cheap recompute of elapsed/silence values.
-        .onReceive(ticker) { tickerNow = $0 }
+        // Also re-assert keep-awake every second: setting it once at start can lose the race if
+        // `scenePhase` hasn't settled to `.active` yet, and a re-assertion is idempotent/cheap —
+        // this guarantees the screen never sleeps while the captions screen is up and foregrounded.
+        .onReceive(ticker) { tickerNow = $0; updateKeepAwake() }
 
         // MARK: Session lifecycle (same wiring as the old LiveView)
         .task {
