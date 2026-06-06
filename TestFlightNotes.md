@@ -14,7 +14,7 @@ Keep under 4000 chars. Latest build notes first.
 
 ---
 
-## Build 34 (1.0)
+## Build 34 (1.0.1)
 
 Big diarization quality pass, a hearing-aid mic fix, and several polish items.
 **Please test on a physical device** — focus on the two starred items.
