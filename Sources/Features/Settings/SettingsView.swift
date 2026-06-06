@@ -101,11 +101,6 @@ struct SettingsView: View {
                             sub: "Overlay chunks · buffer · RMS · pass count on the Live screen"
                         ),
                         .value(
-                            label: "Sound classifier",
-                            value: "",
-                            action: { state.push(.soundDiagnostics) }
-                        ),
-                        .value(
                             label: "Replay onboarding",
                             value: "",
                             action: { replayOnboarding() }
@@ -295,6 +290,7 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         case .status(let label, let value, let color, let action):
@@ -313,6 +309,7 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         case .readout(let label, let value):

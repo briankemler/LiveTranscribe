@@ -8,6 +8,11 @@ struct AlertView: View {
     @Environment(\.theme) private var theme
     @Environment(\.tweaks) private var tweaks
 
+    /// Retained + prepared so the alert haptic actually fires. A throwaway
+    /// `UINotificationFeedbackGenerator()` created inline often gets deallocated before the
+    /// Taptic Engine plays, so the buzz was unreliable. (No Taptic Engine on iPad → no haptic.)
+    @State private var haptics = UINotificationFeedbackGenerator()
+
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
@@ -58,7 +63,8 @@ struct AlertView: View {
             // announcement below is unconditional so a deaf-blind user always hears the
             // alert label regardless of haptic preference.
             if tweaks.vibrateOnAlerts {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                haptics.prepare()
+                haptics.notificationOccurred(.error)
             }
             // Post a VoiceOver announcement so users hear the alert even if focus hasn't
             // landed on the hero card yet. SwiftUI's `.accessibilityLabel` alone wouldn't

@@ -24,7 +24,6 @@ enum Route: Hashable, Sendable, Identifiable, CaseIterable {
     case diarizationSettings
     case privacyPolicy
     case acknowledgements
-    case soundDiagnostics
     /// Carries the conversation's stable UUID so `SummaryView` can look it up via SwiftData.
     /// Nil = "most recent non-empty conversation" (fallback used by the showcase deck and
     /// the Home recents tap path when there's no specific id).
@@ -41,7 +40,7 @@ enum Route: Hashable, Sendable, Identifiable, CaseIterable {
         .alert(.preview),
         .typeToSpeak, .rewind,
         .settings, .soundSettings, .languageSettings, .modelSettings, .textSizeSettings, .diarizationSettings,
-        .privacyPolicy, .acknowledgements, .soundDiagnostics,
+        .privacyPolicy, .acknowledgements,
         .summary(nil),
     ]
 
@@ -70,7 +69,6 @@ enum Route: Hashable, Sendable, Identifiable, CaseIterable {
         case .diarizationSettings: "diarizationSettings"
         case .privacyPolicy: "privacyPolicy"
         case .acknowledgements: "acknowledgements"
-        case .soundDiagnostics: "soundDiagnostics"
         case .summary: "summary"
         }
     }
@@ -85,7 +83,7 @@ enum Route: Hashable, Sendable, Identifiable, CaseIterable {
         case .alert: "04 · Sound alert"
         case .typeToSpeak, .rewind: "05 · Type-to-speak & Rewind"
         case .settings, .soundSettings, .languageSettings, .modelSettings, .textSizeSettings, .diarizationSettings,
-             .privacyPolicy, .acknowledgements, .soundDiagnostics, .summary: "06 · Settings & Summary"
+             .privacyPolicy, .acknowledgements, .summary: "06 · Settings & Summary"
         }
     }
 
@@ -112,7 +110,6 @@ enum Route: Hashable, Sendable, Identifiable, CaseIterable {
         case .diarizationSettings: "Speaker labels"
         case .privacyPolicy: "Privacy policy"
         case .acknowledgements: "Acknowledgements"
-        case .soundDiagnostics: "Sound classifier"
         case .summary: "Conversation summary"
         }
     }

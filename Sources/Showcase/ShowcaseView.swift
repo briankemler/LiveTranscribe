@@ -122,7 +122,6 @@ struct ShowcaseView: View {
         case .diarizationSettings: DiarizationSettingsView()
         case .privacyPolicy: PrivacyPolicyView()
         case .acknowledgements: AcknowledgementsView()
-        case .soundDiagnostics: SoundDiagnosticsView()
         case .summary(let id): SummaryView(conversationID: id)
         }
     }
