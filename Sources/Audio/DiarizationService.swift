@@ -208,13 +208,17 @@ final class DiarizationService {
     ///
     /// `numberOfSpeakers` is an optional hint — pass it when the count is known (e.g. the user
     /// said "group of 3"); nil lets pyannote estimate it via clustering.
-    func diarize(samples: [Float], numberOfSpeakers: Int? = nil) async throws -> DiarizationOutcome {
+    func diarize(
+        samples: [Float],
+        numberOfSpeakers: Int? = nil,
+        clusterThreshold: Float = DiarizationService.clusterThreshold
+    ) async throws -> DiarizationOutcome {
         if box == nil { try await loadModel() }
         guard let box else { throw DiarizationError.modelNotLoaded }
 
         let options = PyannoteDiarizationOptions(
             numberOfSpeakers: numberOfSpeakers,
-            clusterDistanceThreshold: Self.clusterThreshold
+            clusterDistanceThreshold: clusterThreshold
         )
         let result = try await Task.detached {
             try await box.diarizer.diarize(audioArray: samples, options: options, progressCallback: nil)

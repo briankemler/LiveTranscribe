@@ -272,6 +272,7 @@ struct CaptionsView: View {
             s.soundRecognitionEnabled = tweaks.soundRecognitionEnabled
             s.diarizationEnabled = tweaks.diarization != .off
             s.speakerCountHint = tweaks.groupSpeakerCount.count
+            s.tuning = state.diarizationTuning
             session = s
             updateKeepAwake()  // keep the screen awake now that captioning is starting
 #if DEBUG
@@ -318,6 +319,9 @@ struct CaptionsView: View {
         // over the type-checker's complexity limit. Setting all fields each time is cheap and
         // idempotent.
         .onChange(of: tweaks) { _, t in syncSession(with: t) }
+        // Developer diarization tuning — apply live to the running session so on-device tweaks
+        // take effect on the next pass without restarting the conversation.
+        .onChange(of: state.diarizationTuning) { _, t in session?.tuning = t }
         .onChange(of: session?.soundRecognition.lastAmbientDetection) { _, detection in
             // Build-14: route non-urgent classifier hits to the margin tag. We don't push
             // an alert and we don't persist detections (only urgent detections go to the

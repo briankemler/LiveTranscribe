@@ -14,6 +14,12 @@ final class AppState {
     /// Loaded from `TweaksStore` on init; saved by an `onChange` at `AppRoot`.
     var tweaks: Tweaks
 
+    /// Developer-only live diarization knobs (hidden Developer panel). Persisted on change so
+    /// on-device tuning survives relaunches. Read by `LiveSession`/`DiarizationService`.
+    var diarizationTuning: DiarizationTuning = .load() {
+        didSet { diarizationTuning.save() }
+    }
+
     /// Whether the floating Tweaks sheet is showing.
     var tweaksOpen: Bool = false
 

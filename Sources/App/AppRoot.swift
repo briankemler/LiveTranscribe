@@ -80,6 +80,7 @@ struct AppRoot: View {
         case .diarizationSettings: DiarizationSettingsView()
         case .privacyPolicy: PrivacyPolicyView()
         case .acknowledgements: AcknowledgementsView()
+        case .diarizationTuning: DiarizationTuningView()
         case .summary(let id): SummaryView(conversationID: id)
         }
     }

@@ -125,6 +125,11 @@ struct SettingsView: View {
                                 sub: "Overlay RMS · chunks · buffer · pass count · mic on the Live screen"
                             ),
                             .value(
+                                label: "Diarization tuning",
+                                value: "",
+                                action: { state.push(.diarizationTuning) }
+                            ),
+                            .value(
                                 label: "Replay onboarding",
                                 value: "",
                                 action: { replayOnboarding() }

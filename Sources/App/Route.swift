@@ -24,6 +24,8 @@ enum Route: Hashable, Sendable, Identifiable, CaseIterable {
     case diarizationSettings
     case privacyPolicy
     case acknowledgements
+    /// Developer-only: live diarization tuning panel (hidden behind the 7-tap gate).
+    case diarizationTuning
     /// Carries the conversation's stable UUID so `SummaryView` can look it up via SwiftData.
     /// Nil = "most recent non-empty conversation" (fallback used by the showcase deck and
     /// the Home recents tap path when there's no specific id).
@@ -40,7 +42,7 @@ enum Route: Hashable, Sendable, Identifiable, CaseIterable {
         .alert(.preview),
         .typeToSpeak, .rewind,
         .settings, .soundSettings, .languageSettings, .modelSettings, .textSizeSettings, .diarizationSettings,
-        .privacyPolicy, .acknowledgements,
+        .privacyPolicy, .acknowledgements, .diarizationTuning,
         .summary(nil),
     ]
 
@@ -69,6 +71,7 @@ enum Route: Hashable, Sendable, Identifiable, CaseIterable {
         case .diarizationSettings: "diarizationSettings"
         case .privacyPolicy: "privacyPolicy"
         case .acknowledgements: "acknowledgements"
+        case .diarizationTuning: "diarizationTuning"
         case .summary: "summary"
         }
     }
@@ -83,7 +86,7 @@ enum Route: Hashable, Sendable, Identifiable, CaseIterable {
         case .alert: "04 · Sound alert"
         case .typeToSpeak, .rewind: "05 · Type-to-speak & Rewind"
         case .settings, .soundSettings, .languageSettings, .modelSettings, .textSizeSettings, .diarizationSettings,
-             .privacyPolicy, .acknowledgements, .summary: "06 · Settings & Summary"
+             .privacyPolicy, .acknowledgements, .diarizationTuning, .summary: "06 · Settings & Summary"
         }
     }
 
@@ -110,6 +113,7 @@ enum Route: Hashable, Sendable, Identifiable, CaseIterable {
         case .diarizationSettings: "Speaker labels"
         case .privacyPolicy: "Privacy policy"
         case .acknowledgements: "Acknowledgements"
+        case .diarizationTuning: "Diarization tuning"
         case .summary: "Conversation summary"
         }
     }
