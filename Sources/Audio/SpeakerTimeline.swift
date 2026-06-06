@@ -37,22 +37,29 @@ struct SpeakerTimeline {
     /// are dropped (their audio stays uncovered → the line keeps its sticky label) rather than
     /// flashing a spurious "Speaker N". A genuine new voice clears the bar as they keep talking.
     var minNewSpeakerSeconds: TimeInterval = 1.0
+    /// Hard ceiling on the number of distinct stable speakers. Once reached, an unmatched cluster
+    /// is *folded into the nearest existing speaker* instead of minting a new id — this is what
+    /// stops "keeps cycling new speakers" on long conversations. Set to the user's expected count
+    /// (or a sane max in Auto). Default `.max` = uncapped (the pure-type default; production sets it).
+    var maxSpeakers: Int = .max
 
     /// The assembled, merged timeline, sorted by start time.
     private(set) var spans: [Span] = []
     private var nextSpeakerId: Int = 0
 
-    /// Total distinct stable speakers allocated so far (monotonic).
+    /// Total distinct stable speakers allocated so far (monotonic, ≤ `maxSpeakers`).
     var speakerCount: Int { nextSpeakerId }
 
     init(
         minOverlapSeconds: TimeInterval = 0.2,
         mergeGapSeconds: TimeInterval = 0.4,
-        minNewSpeakerSeconds: TimeInterval = 1.0
+        minNewSpeakerSeconds: TimeInterval = 1.0,
+        maxSpeakers: Int = .max
     ) {
         self.minOverlapSeconds = minOverlapSeconds
         self.mergeGapSeconds = mergeGapSeconds
         self.minNewSpeakerSeconds = minNewSpeakerSeconds
+        self.maxSpeakers = maxSpeakers
     }
 
     // MARK: - Ingest
@@ -116,10 +123,18 @@ struct SpeakerTimeline {
         let unmatched = local.keys.filter { mapping[$0] == nil }
             .sorted { earliestStart(local[$0]) < earliestStart(local[$1]) }
         for lc in unmatched {
-            let duration = (local[lc] ?? []).reduce(0) { $0 + ($1.end - $1.start) }
-            guard duration >= minNewSpeakerSeconds else { continue }
-            mapping[lc] = nextSpeakerId
-            nextSpeakerId += 1
+            let ints = local[lc] ?? []
+            if nextSpeakerId < maxSpeakers {
+                // Room for a new speaker — but only if they've spoken enough to clear the blip gate.
+                let duration = ints.reduce(0) { $0 + ($1.end - $1.start) }
+                guard duration >= minNewSpeakerSeconds else { continue }
+                mapping[lc] = nextSpeakerId
+                nextSpeakerId += 1
+            } else if let fold = foldTarget(for: ints) {
+                // Speaker cap reached: attribute this cluster to the nearest existing speaker
+                // rather than spawn a spurious new one. This is the anti-runaway clamp.
+                mapping[lc] = fold
+            }
         }
 
         // Rebuild: drop the window region from existing spans, splice in the newly-mapped pass.
@@ -181,6 +196,29 @@ struct SpeakerTimeline {
             }
         }
         return sum
+    }
+
+    /// When the speaker cap is reached, pick the best existing speaker to absorb an unmatched
+    /// cluster: the one it overlaps most in time, else the one nearest in time, else speaker 0.
+    /// (Phase B will replace this time-based heuristic with voice-embedding similarity.)
+    private func foldTarget(for ints: [Interval]) -> Int? {
+        guard nextSpeakerId > 0, let probe = ints.first?.start else { return nil }
+        var bestOverlap: (speaker: Int, overlap: TimeInterval)?
+        for (speaker, list) in Dictionary(grouping: spans, by: \.speaker) {
+            let gints = list.map { Interval(start: $0.start, end: $0.end) }
+            let ov = totalOverlap(ints, gints)
+            if ov > 0, bestOverlap == nil || ov > bestOverlap!.overlap {
+                bestOverlap = (speaker, ov)
+            }
+        }
+        if let best = bestOverlap { return best.speaker }
+        // No time overlap with anyone — fall back to the speaker nearest in time.
+        var nearest: (speaker: Int, gap: TimeInterval)?
+        for sp in spans {
+            let gap = min(abs(sp.start - probe), abs(sp.end - probe))
+            if nearest == nil || gap < nearest!.gap { nearest = (sp.speaker, gap) }
+        }
+        return nearest?.speaker ?? 0
     }
 
     private func spansClipped(to start: TimeInterval, _ end: TimeInterval) -> [Int: [Interval]] {

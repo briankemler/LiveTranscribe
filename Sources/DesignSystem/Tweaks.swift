@@ -7,10 +7,11 @@ struct Tweaks: Sendable, Equatable, Codable {
     var textSize: TextSize = .regular
     var diarization: Diarization = .auto
     /// Expected number of speakers in group mode. A fixed count is handed to pyannote as a hard
-    /// constraint (`numberOfSpeakers`), which is far more stable than letting it auto-estimate the
-    /// count on short live windows. `.auto` keeps estimation. Adjustable live from the captions
-    /// Quick Settings sheet; persisted.
-    var groupSpeakerCount: GroupSpeakerCount = .auto
+    /// constraint (`numberOfSpeakers`) AND caps the stable-speaker timeline, which is far more
+    /// stable than letting it auto-estimate on short live windows (which over-splits and "keeps
+    /// cycling" new speakers). Defaults to `.two` — the most reliable case; users bump to 3/4 from
+    /// the captions Quick Settings sheet. `.auto` keeps estimation (capped at 4). Persisted.
+    var groupSpeakerCount: GroupSpeakerCount = .two
     /// Captions screen layout. `.focus` (default) = the teleprompter view: one big current
     /// line + one dim previous line. `.feed` ("Star Wars" internally) = a chat-style
     /// scrolling feed that keeps several past utterances visible and auto-scrolls upward as

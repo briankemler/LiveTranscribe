@@ -145,8 +145,12 @@ final class LiveSession {
     /// Optional fixed speaker-count hint (e.g. the user said "3 people"). Fed to pyannote to
     /// stabilize clustering — auto-estimation on short rolling windows is unreliable. Nil = auto.
     var speakerCountHint: Int? = nil
-    /// Stable speaker timeline stitched across successive batch diarization passes.
-    private var speakerTimeline = SpeakerTimeline()
+    /// Stable speaker timeline stitched across successive batch diarization passes. Live tuning:
+    /// a longer blip gate (2.5 s) than the type default so transient mis-clusters don't earn a
+    /// pill. The `maxSpeakers` cap is set per-pass from `speakerCountHint` (see `ingestDiarization`).
+    private var speakerTimeline = SpeakerTimeline(minNewSpeakerSeconds: 2.5)
+    /// Cap for `auto` mode (no fixed count) — a realistic ceiling for single-mic live diarization.
+    private let autoMaxSpeakers = 4
     /// Total 16 kHz samples ever fed in — a monotonic audio clock (`/ sampleRate` ⇒ seconds)
     /// that survives buffer trimming, shared by line timing and diarization windows.
     private var totalSamplesAppended: Int = 0
@@ -157,12 +161,21 @@ final class LiveSession {
     private var diarizePassInFlight = false
     private var diarizeTask: Task<Void, Never>?
     /// How often a diarization pass runs (audio seconds). Coarser than transcription to bound
-    /// battery/thermal — pyannote over a long window is heavier than a 3 s Whisper window.
-    private let diarizeStrideSeconds: Double = 3.5
-    /// Rolling window each pass diarizes. Long enough for stable clustering, < the 30 s buffer cap.
-    private let diarizeWindowSeconds: Double = 24.0
+    /// battery/thermal — pyannote over a long window is heavier than a 3 s Whisper window. The
+    /// newest stride's worth of audio rides the sticky fallback until the next pass labels it.
+    private let diarizeStrideSeconds: Double = 5.0
+    /// Span each pass diarizes — grows with the conversation up to this cap. We deliberately
+    /// diarize a *long* trailing span (not a short window) so pyannote re-clusters the whole recent
+    /// conversation by voice every pass: a speaker who went quiet and returns is re-identified by
+    /// their voice (pyannote's internal embeddings), not by time. Because consecutive long windows
+    /// overlap ~95%, the stitch layer maps clusters to stable pills very reliably. Bounded to keep
+    /// per-pass compute in check; see `bufferKeepSeconds`.
+    private let diarizeWindowSeconds: Double = 90.0
     /// Minimum audio accumulated before the first diarization pass.
     private let minDiarizeSeconds: Double = 6.0
+    /// How much trailing audio the capture buffer retains. Must be ≥ `diarizeWindowSeconds` so the
+    /// diarization span isn't clipped; Whisper only ever reads the most recent few seconds.
+    private let bufferKeepSeconds: Double = 100.0
     /// Distinct stable speakers detected so far (debug telemetry / future UI).
     private(set) var diarizedSpeakerCount: Int = 0
 
@@ -620,8 +633,9 @@ final class LiveSession {
             currentLineAudioStart = partial.audioStart
             currentLineAudioEnd = partial.audioEnd
 
-            // Bound the buffer so we don't grow forever — keep last 30 s.
-            let keep = Int(30 * sampleRate)
+            // Bound the buffer so we don't grow forever. Must exceed `diarizeWindowSeconds` so the
+            // diarization span is never clipped (~6.4 MB at 100 s · 16 kHz · Float32).
+            let keep = Int(bufferKeepSeconds * sampleRate)
             if buffer.count > keep {
                 buffer.removeFirst(buffer.count - keep)
             }
@@ -667,6 +681,9 @@ final class LiveSession {
         let absolute = outcome.segments.map {
             DiarizedSegment(speakerId: $0.speakerId, start: windowStart + $0.start, end: windowStart + $0.end)
         }
+        // Cap the timeline at the user's expected count (or the auto ceiling) so it can't keep
+        // minting spurious speakers. Tracks the picker live if the user changes it mid-session.
+        speakerTimeline.maxSpeakers = speakerCountHint ?? autoMaxSpeakers
         speakerTimeline.ingest(absolute, windowStart: windowStart, windowEnd: windowEnd)
         diarizedSpeakerCount = speakerTimeline.speakerCount
         reattributeRecentLines()

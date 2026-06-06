@@ -143,4 +143,25 @@ struct SpeakerTimelineTests {
         #expect(timeline.speakerCount == 2)
         #expect(timeline.speaker(at: 5) == 1)
     }
+
+    // MARK: - Speaker cap
+
+    @Test("Speaker cap folds extra clusters into existing speakers, never minting new ids")
+    func speakerCapClamps() {
+        var timeline = SpeakerTimeline(maxSpeakers: 2)
+        // Three distinct, well-separated voices in one pass, but the cap is 2.
+        timeline.ingest([seg(0, 0, 3), seg(1, 3, 6), seg(2, 6, 9)], windowStart: 0, windowEnd: 9)
+        #expect(timeline.speakerCount == 2)               // never exceeds the cap
+        #expect(timeline.speaker(at: 1) == 0)             // first two get ids 0 and 1
+        #expect(timeline.speaker(at: 4) == 1)
+        let third = timeline.speaker(at: 7)               // the over-cap voice folds into one of them
+        #expect(third == 0 || third == 1)
+    }
+
+    @Test("Under the cap, new speakers still append normally")
+    func capAllowsUpToLimit() {
+        var timeline = SpeakerTimeline(maxSpeakers: 4)
+        timeline.ingest([seg(0, 0, 2), seg(1, 2, 4), seg(2, 4, 6)], windowStart: 0, windowEnd: 6)
+        #expect(timeline.speakerCount == 3)               // below the cap → all three allocate
+    }
 }

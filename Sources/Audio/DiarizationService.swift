@@ -84,7 +84,7 @@ final class DiarizationService {
     /// we run a touch higher so it merges borderline embeddings instead of spawning spurious
     /// extra speakers — auto speaker-count on short live windows tends to over-segment. Raise to
     /// merge more (fewer speakers), lower to split more (more speakers). Tunable.
-    static let clusterThreshold: Float = 0.70
+    static let clusterThreshold: Float = 0.80
 
     /// Hub caches the repo snapshot under
     /// `Documents/huggingface/models/argmaxinc/speakerkit-coreml/`.
