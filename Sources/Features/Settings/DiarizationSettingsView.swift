@@ -103,7 +103,7 @@ struct DiarizationSettingsView: View {
             }
             Text(isMulti
                  ? "Multi-mic mode is available: each channel becomes Mic 1, 2, 3… and each line is tagged with the loudest mic."
-                 : "Connect a multi-channel USB-C/Lightning audio interface or mic array to label speakers by microphone. With the built-in mic, group mode uses the pause-based heuristic below.")
+                 : "Group mode separates speakers by voice right on the built-in mic — no extra hardware needed. (A multi-channel USB-C/Lightning interface is an optional alternative that labels by physical mic instead.)")
                 .font(.scaled(size: 12, relativeTo: .caption1))
                 .foregroundStyle(theme.inkSoft)
                 .lineSpacing(2)
@@ -118,7 +118,7 @@ struct DiarizationSettingsView: View {
     }
 
     private var aboutCard: some View {
-        Text("In group mode, if a multi-channel audio interface is connected, Earshot labels each line by the microphone that was loudest — real per-mic separation. Otherwise it falls back to a pause-based heuristic: a long enough silence between sentences starts a new \"Speaker N\". That isn't voice fingerprinting — just a good-enough proxy for casual conversation. 1:1 mode doesn't need labels.")
+        Text("In group mode, Earshot tells speakers apart by their voice — on-device speaker separation (powered by pyannote) that runs entirely on your iPhone, labelling each line \"Speaker 1, 2, 3…\". For the best results, set how many people are talking in the live controls: a fixed count is far more accurate than letting it guess. Voice separation is hardest with more than three or four people, or with lots of crosstalk. If a multi-channel audio interface is connected, Earshot instead labels by the loudest physical mic. 1:1 mode doesn't need labels.")
             .font(.scaled(size: 13, relativeTo: .footnote))
             .foregroundStyle(theme.inkSoft)
             .lineSpacing(3)

@@ -22,6 +22,7 @@ struct SettingsView: View {
     /// always reachable for field debugging. Session-local — re-tap each launch.
     @State private var devTapCount = 0
     @State private var devUnlocked = false
+    @State private var devHaptics = UINotificationFeedbackGenerator()
 
     var body: some View {
         @Bindable var bindable = state
@@ -159,7 +160,8 @@ struct SettingsView: View {
         devTapCount += 1
         if devTapCount >= 7 {
             withAnimation { devUnlocked = true }
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            devHaptics.prepare()
+            devHaptics.notificationOccurred(.success)
         }
     }
 

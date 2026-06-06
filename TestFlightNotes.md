@@ -14,6 +14,34 @@ Keep under 4000 chars. Latest build notes first.
 
 ---
 
+## Build 34 (1.0)
+
+Big diarization quality pass, a hearing-aid mic fix, and several polish items.
+**Please test on a physical device** — focus on the two starred items.
+
+### ⭐ Group-mode speaker separation (please test in a real 2–4 person chat)
+- Group mode no longer "keeps cycling" new speakers. It now caps the speaker
+  count, defaults to **2 people**, and re-identifies a speaker by voice when
+  they go quiet and come back (it diarizes a long trailing span each pass).
+- Set the real number of people in the captions controls ("How many people?")
+  for best accuracy. Watch for: do labels stay stable per person? Does the app
+  run hot or lag over a few minutes? (This pass does more on-device work.)
+
+### ⭐ Hearing aid / AirPods mic fix (please test if you have one)
+- If a Bluetooth hearing aid, AirPods, or BT headset was connected, the app
+  was capturing from *that* device and getting silence ("mic not capturing").
+  It now always listens through the iPhone's own mic. Pair a BT audio device,
+  start captioning, and confirm captions still flow.
+
+### Polish
+- Settings rows are fully tappable now (not just the label/chevron).
+- Sound-alert haptic fires reliably.
+- Screen stays awake throughout live captioning.
+- Developer tools are now hidden (tap the Version row 7× to reveal); the
+  transcription-diagnostics overlay works again (shows live mic RMS).
+
+---
+
 ## Build 32 (1.0)
 
 Real speaker diarization in group mode, plus a fix for a model-download bug that could show a false "microphone unavailable" error.
