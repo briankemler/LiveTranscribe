@@ -17,6 +17,12 @@ struct SettingsView: View {
     @Query(filter: #Predicate<ConversationRecord> { $0.isStarred })
     private var starredConversations: [ConversationRecord]
 
+    /// Hidden developer-tools gate: the Developer section only appears after tapping the Version
+    /// row ~7 times (the classic build-number easter egg), so it's invisible to normal users but
+    /// always reachable for field debugging. Session-local — re-tap each launch.
+    @State private var devTapCount = 0
+    @State private var devUnlocked = false
+
     var body: some View {
         @Bindable var bindable = state
         VStack(spacing: 0) {
@@ -89,26 +95,8 @@ struct SettingsView: View {
                         ),
                     ])
 
-                    section("Developer", items: [
-                        .toggle(
-                            label: "Show Tweaks panel",
-                            binding: $bindable.tweaks.showTweaksPanel,
-                            sub: "Side-tab on Live screens for palette · text size · diarization · showcase"
-                        ),
-                        .toggle(
-                            label: "Show transcription diagnostics",
-                            binding: $bindable.tweaks.showDiagnostics,
-                            sub: "Overlay chunks · buffer · RMS · pass count on the Live screen"
-                        ),
-                        .value(
-                            label: "Replay onboarding",
-                            value: "",
-                            action: { replayOnboarding() }
-                        ),
-                    ])
-
                     section("About", items: [
-                        .readout(label: "Version", value: Self.versionString),
+                        .tapReadout(label: "Version", value: Self.versionString, action: { registerDevTap() }),
                         .value(
                             label: "Privacy policy",
                             value: "",
@@ -125,6 +113,23 @@ struct SettingsView: View {
                             action: { sendFeedback() }
                         ),
                     ])
+
+                    // Hidden until the Version row is tapped ~7 times — keeps dev tools out of the
+                    // shipped UI while staying reachable for field debugging.
+                    if devUnlocked {
+                        section("Developer", items: [
+                            .toggle(
+                                label: "Show transcription diagnostics",
+                                binding: $bindable.tweaks.showDiagnostics,
+                                sub: "Overlay RMS · chunks · buffer · pass count · mic on the Live screen"
+                            ),
+                            .value(
+                                label: "Replay onboarding",
+                                value: "",
+                                action: { replayOnboarding() }
+                            ),
+                        ])
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
@@ -144,6 +149,18 @@ struct SettingsView: View {
         case value(label: String, value: String, action: (() -> Void)? = nil)
         case status(label: String, value: String, color: Color, action: (() -> Void)? = nil)
         case readout(label: String, value: String)
+        /// A readout (no chevron) that quietly counts taps — used for the hidden dev-tools gate.
+        case tapReadout(label: String, value: String, action: () -> Void)
+    }
+
+    /// Count taps on the Version row; reveal the Developer section on the 7th.
+    private func registerDevTap() {
+        guard !devUnlocked else { return }
+        devTapCount += 1
+        if devTapCount >= 7 {
+            withAnimation { devUnlocked = true }
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
     }
 
     /// Build version string, e.g. "0.1.0 (7)". Read from the bundle so it stays in sync with
@@ -323,6 +340,19 @@ struct SettingsView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
+        case .tapReadout(let label, let value, let action):
+            HStack(spacing: 12) {
+                Text(label).font(.scaled(size: 14, weight: .medium, relativeTo: .subheadline)).foregroundStyle(theme.ink)
+                Spacer()
+                Text(value)
+                    .font(.scaled(size: 13, relativeTo: .footnote))
+                    .monospacedDigit()
+                    .foregroundStyle(theme.inkSoft)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+            .onTapGesture { action() }
         }
     }
 }

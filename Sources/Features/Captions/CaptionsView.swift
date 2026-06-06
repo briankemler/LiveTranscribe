@@ -214,6 +214,23 @@ struct CaptionsView: View {
                 }
                 .padding(.top, 80)
             }
+
+            // Developer transcription-diagnostics overlay (Settings → Developer). The live capture/
+            // transcribe telemetry — `rms` is the key one for "is the mic actually capturing?"
+            // (0.00 = silence, e.g. a hijacked Bluetooth route); `mic`/input name shows the route.
+            if tweaks.showDiagnostics, let s = session {
+                VStack {
+                    Spacer()
+                    Text("rms \(String(format: "%.2f", s.audioLevel)) · chunks \(s.chunksReceived) · buf \(String(format: "%.1f", s.bufferSeconds))s · pass \(s.transcribePasses) · spk \(s.diarizedSpeakerCount) · mic \(s.micCount)\(s.inputName.isEmpty ? "" : " · \(s.inputName)")")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(theme.inkMute)
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(theme.surface.opacity(0.85), in: Capsule())
+                        .padding(.bottom, 8)
+                        .accessibilityHidden(true)
+                }
+                .allowsHitTesting(false)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationBarBackButtonHidden(true)
