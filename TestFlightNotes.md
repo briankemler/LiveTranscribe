@@ -14,6 +14,15 @@ Keep under 4000 chars. Latest build notes first.
 
 ---
 
+## Build 35 (1.0.1)
+
+Same as build 34 (group-mode speaker-separation overhaul + hearing-aid mic fix —
+please test those, notes below), plus an internal-only diarization tuning tool
+for dialing in speaker separation on-device. The tuning tool is hidden and not
+visible to testers, so there's nothing new to test here beyond build 34's items.
+
+---
+
 ## Build 34 (1.0.1)
 
 Big diarization quality pass, a hearing-aid mic fix, and several polish items.
