@@ -392,7 +392,6 @@ struct CaptionsView: View {
                         .lineSpacing(32 * 0.2)
                         .foregroundStyle(theme.ink)
                         .fixedSize(horizontal: false, vertical: true)
-                    BlinkingCaret(height: 26, width: 3)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(currentLineA11yLabel)
@@ -436,7 +435,6 @@ struct CaptionsView: View {
                     if !isSilent {
                         HStack(alignment: .lastTextBaseline, spacing: 4) {
                             feedLine(currentText, emphasized: true)
-                            BlinkingCaret(height: 22, width: 3)
                         }
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(currentLineA11yLabel)
@@ -722,7 +720,6 @@ struct CaptionsView: View {
                               : .scaled(size: 16 * tweaks.textSize.scale, relativeTo: .body))
                         .foregroundStyle(emphasized ? theme.ink : theme.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
-                    if emphasized { BlinkingCaret(height: 18, width: 3) }
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
