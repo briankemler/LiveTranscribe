@@ -25,7 +25,7 @@ struct Tweaks: Sendable, Equatable, Codable {
     var translateToEnglish: Bool = false
     /// Which Whisper model variant the user has chosen. Switching this in Settings triggers an
     /// on-device reload (and a download, the first time that model is picked).
-    var transcriptionModel: WhisperModelChoice = .small
+    var transcriptionModel: WhisperModelChoice = .base
     var showSpeakerColors: Bool = true
     /// Rev-2 captions: drives the right-margin sound tag on the captions screen. Default off
     /// until real ambient-sound detection (non-urgent SoundAnalysis categories) is wired up;

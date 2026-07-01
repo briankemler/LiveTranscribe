@@ -14,6 +14,23 @@ Keep under 4000 chars. Latest build notes first.
 
 ---
 
+## Build 36 (1.0.1)
+
+Faster first-run, honest download UI, and a cleaner caption screen.
+
+- **Default model is now Whisper Base (~74 MB)** instead of Small (~244 MB), so
+  the first-launch download is much faster. Existing testers keep their current
+  model; Small is still available (Settings → Transcription model) for higher
+  accuracy. Please compare Base vs Small accuracy on your device.
+- **Download screen is honest now:** the progress bar no longer looks stalled
+  near the end. It shows the real model size, drops the fake "seconds left,"
+  keeps a moving shimmer, and explains that the last (largest) files download
+  slower — it was never actually stuck.
+- **Removed the blinking cursor** on the live caption line.
+- Plus everything from build 34/35 (diarization overhaul, hearing-aid mic fix).
+
+---
+
 ## Build 35 (1.0.1)
 
 Same as build 34 (group-mode speaker-separation overhaul + hearing-aid mic fix —

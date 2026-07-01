@@ -6,13 +6,21 @@ struct ModelDownloadingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var teachIndex: Int = 1
-    @State private var animating = false
+    @State private var shimmerPhase = false
     @State private var teachStartedAt: Date = .now
 
     private let total: Double = 100
     private let teach: [TeachCard] = TeachCard.all
-    /// Whisper Small is ~244 MB on disk; the design copy says 1.5 GB, but show the real number.
-    private let modelSizeMB: Double = 244
+    /// Size of the model actually being downloaded (the user's choice; new users default to Base).
+    private var modelSizeMB: Double { Double(state.tweaks.transcriptionModel.sizeMB) }
+
+    /// The progress bar counts files, not bytes, and this model's bytes live almost entirely in one
+    /// or two large weight files — so the bar races through the many tiny files, then crawls while
+    /// a big file streams in. Past this point we tell the user it's slow-but-not-stuck.
+    private var inBigFileStretch: Bool {
+        if case .loading = state.transcription.loadState { return pct >= 55 }
+        return false
+    }
 
     /// Real download progress from WhisperKit. 0...1.
     private var pct: Double {
@@ -37,11 +45,11 @@ struct ModelDownloadingView: View {
     private var kickerText: String {
         if isWaitingForWifi { return "PAUSED · WI-FI REQUIRED" }
         if isCompiling      { return "ALMOST READY" }
-        return "DOWNLOADING · ~\(secLeft)s LEFT"
+        if inBigFileStretch { return "DOWNLOADING · LARGE FILES" }
+        return "DOWNLOADING"
     }
 
     private var mb: Int { Int(pct / 100 * modelSizeMB) }
-    private var secLeft: Int { max(1, Int((100 - pct) * 0.6)) } // crude estimate
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -101,7 +109,9 @@ struct ModelDownloadingView: View {
             Image(systemName: "cpu")
                 .font(.scaled(size: 14, weight: .heavy, relativeTo: .subheadline))
                 .foregroundStyle(theme.accent)
-            Text("You can lock the screen — we'll keep downloading in the background.")
+            Text(inBigFileStretch
+                 ? "Almost there — the final files are the largest, so the bar slows down here. It's still downloading; you can lock the screen and it keeps going in the background."
+                 : "You can lock the screen — we'll keep downloading in the background.")
                 .font(.scaled(size: 12, relativeTo: .caption1))
                 .foregroundStyle(theme.inkSoft)
                 .lineSpacing(2)
@@ -122,7 +132,7 @@ struct ModelDownloadingView: View {
             HStack(spacing: 8) {
                 Image(systemName: "wifi.exclamationmark")
                     .font(.scaled(size: 13, weight: .semibold, relativeTo: .footnote))
-                Text("This 244 MB download is paused until Wi-Fi is available.")
+                Text("This \(Int(modelSizeMB)) MB download is paused until Wi-Fi is available.")
                     .font(.scaled(size: 13, relativeTo: .footnote))
                 Spacer(minLength: 0)
             }
@@ -153,17 +163,22 @@ struct ModelDownloadingView: View {
                         .frame(width: w)
                         .shadow(color: theme.accentGlow, radius: 6)
 
-                    // shimmer
+                    // Shimmer — sweeps continuously across the filled bar so it always reads as
+                    // "actively downloading", even while a large file crawls the percentage. Masked
+                    // to the filled portion. Respects Reduce Motion (no repeating sweep).
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: [.clear, .white.opacity(0.25), .clear],
+                                colors: [.clear, .white.opacity(0.3), .clear],
                                 startPoint: .leading, endPoint: .trailing
                             )
                         )
-                        .frame(width: max(20, geo.size.width * 0.2))
-                        .offset(x: animating ? w + 20 : -40)
-                        .clipShape(Capsule())
+                        .frame(width: max(24, geo.size.width * 0.22))
+                        .offset(x: shimmerPhase ? geo.size.width : -geo.size.width * 0.3)
+                        .animation(reduceMotion ? nil : .linear(duration: 1.3).repeatForever(autoreverses: false),
+                                   value: shimmerPhase)
+                        .mask(alignment: .leading) { Capsule().frame(width: w) }
+                        .onAppear { shimmerPhase = true }
                 }
             }
             .frame(height: 8)
@@ -226,7 +241,6 @@ struct ModelDownloadingView: View {
     }
 
     private func runRealDownload() async {
-        animating = true
 
         // Kick off the actual model load (idempotent — does nothing if already loaded).
         let kickoff = Task {

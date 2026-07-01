@@ -24,7 +24,11 @@ struct TranscriptionServiceTests {
             return
         }
 
-        let service = TranscriptionService(network: NetworkMonitor())
+        // Pin Small explicitly: this test proves the load + inference pipeline runs end-to-end, so
+        // it shouldn't ride on the app's default-model choice (Base is less accurate and returns
+        // empty on this synthetic `say`-generated fixture). Force past the Wi-Fi gate for CI.
+        let service = TranscriptionService(network: NetworkMonitor(), modelName: "openai_whisper-small")
+        try await service.loadModel(allowCellular: true)
         let text = try await service.transcribe(audioFile: url)
 
         // The fixture is `say`-generated TTS, which Whisper sometimes hallucinates on. The job of

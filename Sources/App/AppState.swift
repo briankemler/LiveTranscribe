@@ -49,8 +49,11 @@ final class AppState {
     var currentTheme: Theme { tweaks.palette.theme }
 
     init() {
-        self.tweaks = TweaksStore.load()
-        self.transcription = TranscriptionService(network: network)
+        let loadedTweaks = TweaksStore.load()
+        self.tweaks = loadedTweaks
+        // Respect the user's saved model choice; new users default to Base (`Tweaks` default) for
+        // a fast first download. Existing users keep whatever they had — no surprise re-download.
+        self.transcription = TranscriptionService(network: network, modelName: loadedTweaks.transcriptionModel.whisperKitName)
         self.diarization = DiarizationService(network: network)
         self.modelContainer = ConversationStore.makeContainer()
         self.onboardingSeen = UserDefaults.standard.bool(forKey: Self.onboardingSeenKey)

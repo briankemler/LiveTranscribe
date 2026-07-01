@@ -66,9 +66,10 @@ final class TranscriptionService {
         case audioReadFailed(any Error)
     }
 
-    /// Default model — Whisper Small, ~244 MB. Per the plan, balances accuracy/latency/download.
-    /// Override via `setModel(_:)` from Settings.
-    static let defaultModelName = "openai_whisper-small"
+    /// Fallback model when none is passed — Whisper Base (~74 MB): a small, fast first download.
+    /// The actual model normally comes from the user's saved choice (see `AppState`); overridable
+    /// via `setModel(_:)` in Settings (Small is more accurate).
+    static let defaultModelName = "openai_whisper-base"
 
     // MARK: - Observed state
 
