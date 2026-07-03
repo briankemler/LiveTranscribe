@@ -169,15 +169,23 @@ final class DiarizationService {
                 self.loadState = .ready
                 log.info("SpeakerKit diarizer ready")
             } catch {
+                // Cancellation is not failure — don't let a cancelled load mark the state failed.
+                if error is CancellationError { throw error }
                 log.error("SpeakerKit load failed: \(String(describing: error))")
                 self.loadState = .failed(message: String(describing: error))
                 throw error
             }
         }
         self.loadTask = task
-        defer { self.loadTask = nil }
+        let token = UUID()
+        self.loadTaskToken = token
+        // Clear only our own task (see TranscriptionService.loadModel for the rationale).
+        defer { if self.loadTaskToken == token { self.loadTask = nil; self.loadTaskToken = nil } }
         try await task.value
     }
+
+    /// Identity of the current `loadTask` (`Task` is a struct — no reference identity).
+    private var loadTaskToken: UUID?
 
     /// Bridge to `downloadModels(progressCallback:)` from a nonisolated context so the
     /// non-Sendable progress closure stays off MainActor (Swift 6 strict concurrency).

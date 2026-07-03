@@ -31,6 +31,28 @@ enum ConversationStore {
         }
     }
 
+    /// Repair conversations orphaned by a crash / force-quit mid-session: their `endedAt` was
+    /// never set, so any duration display keeps growing against `Date()` forever. Backfill a
+    /// sane end (start + last line's audio offset, or the start itself for empty records) and
+    /// delete line-less, detection-less ghosts outright. Call once at launch, BEFORE any new
+    /// session starts (so the live session's own nil `endedAt` is never touched).
+    static func repairUnfinishedConversations(in context: ModelContext) {
+        let descriptor = FetchDescriptor<ConversationRecord>(
+            predicate: #Predicate { $0.endedAt == nil }
+        )
+        guard let orphans = try? context.fetch(descriptor), !orphans.isEmpty else { return }
+        for record in orphans {
+            if record.lines.isEmpty && record.detections.isEmpty {
+                context.delete(record)
+            } else {
+                let lastOffset = record.lines.map(\.audioEnd).max() ?? 0
+                record.endedAt = record.startedAt.addingTimeInterval(max(0, lastOffset))
+            }
+        }
+        try? context.save()
+        log.info("Repaired \(orphans.count) unfinished conversation record(s) from a prior run.")
+    }
+
     /// Look up a conversation by its routing UUID. Used by `SummaryView` and `RewindView`.
     static func fetchConversation(id: UUID, in context: ModelContext) -> ConversationRecord? {
         var descriptor = FetchDescriptor<ConversationRecord>(

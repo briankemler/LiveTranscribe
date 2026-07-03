@@ -5,7 +5,7 @@ struct ModelDownloadingView: View {
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @State private var teachIndex: Int = 1
+    @State private var teachIndex: Int = 0
     @State private var shimmerPhase = false
     @State private var teachStartedAt: Date = .now
 
@@ -42,7 +42,13 @@ struct ModelDownloadingView: View {
         state.transcription.loadState == .waitingForWifi
     }
 
+    private var isFailed: Bool {
+        if case .failed = state.transcription.loadState { return true }
+        return false
+    }
+
     private var kickerText: String {
+        if isFailed         { return "DOWNLOAD INTERRUPTED" }
         if isWaitingForWifi { return "PAUSED · WI-FI REQUIRED" }
         if isCompiling      { return "ALMOST READY" }
         if inBigFileStretch { return "DOWNLOADING · LARGE FILES" }
@@ -57,7 +63,14 @@ struct ModelDownloadingView: View {
             Kicker(text: kickerText)
             Spacer().frame(height: 16)
 
-            if isWaitingForWifi {
+            if isFailed {
+                AccentItalicTitle(
+                    lead: "Let's try",
+                    accentLine: "that again.",
+                    size: 44,
+                    tracking: -1.6
+                )
+            } else if isWaitingForWifi {
                 AccentItalicTitle(
                     lead: "Waiting for",
                     accentLine: "Wi-Fi.",
@@ -90,7 +103,9 @@ struct ModelDownloadingView: View {
 
             Spacer(minLength: 16)
 
-            if isWaitingForWifi {
+            if isFailed {
+                retryCard
+            } else if isWaitingForWifi {
                 cellularOverrideCard
             } else {
                 lockScreenHint
@@ -109,9 +124,11 @@ struct ModelDownloadingView: View {
             Image(systemName: "cpu")
                 .font(.scaled(size: 14, weight: .heavy, relativeTo: .subheadline))
                 .foregroundStyle(theme.accent)
+            // Honest: the download uses a foreground URLSession, so it does NOT continue with
+            // the screen locked or the app backgrounded — say so instead of promising otherwise.
             Text(inBigFileStretch
-                 ? "Almost there — the final files are the largest, so the bar slows down here. It's still downloading; you can lock the screen and it keeps going in the background."
-                 : "You can lock the screen — we'll keep downloading in the background.")
+                 ? "Almost there — the final files are the largest, so the bar slows down here. It's still downloading; keep Earshot open until it finishes."
+                 : "Keep Earshot open while it downloads — it only takes a minute.")
                 .font(.scaled(size: 12, relativeTo: .caption1))
                 .foregroundStyle(theme.inkSoft)
                 .lineSpacing(2)
@@ -125,6 +142,30 @@ struct ModelDownloadingView: View {
                 .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(theme.line, lineWidth: 1))
         )
         .padding(.bottom, 28)
+    }
+
+    /// Failure is recoverable, not a dead end: the model store self-heals partial downloads on
+    /// the next attempt, so all Retry has to do is call loadModel again.
+    private var retryCard: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.arrow.circlepath")
+                    .font(.scaled(size: 13, weight: .semibold, relativeTo: .footnote))
+                Text("The download didn't finish — check your connection and try again. It picks up where it left off.")
+                    .font(.scaled(size: 13, relativeTo: .footnote))
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(theme.inkSoft)
+
+            PrimaryButton(action: {
+                Task { try? await state.transcription.loadModel() }
+            }) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.scaled(size: 16, weight: .heavy, relativeTo: .body))
+                Text("Retry download")
+            }
+        }
+        .padding(.bottom, 16)
     }
 
     private var cellularOverrideCard: some View {
@@ -249,8 +290,8 @@ struct ModelDownloadingView: View {
         defer { kickoff.cancel() }
 
         // Eagerly fetch the much smaller (~9–22 MB) pyannote diarization models in parallel.
-        // We don't gate the "ready" transition on this — it finishes well before Whisper's
-        // 244 MB, and group-mode diarization loads it lazily anyway if it isn't done yet.
+        // We don't gate the "ready" transition on this — it finishes well before the Whisper
+        // model, and group-mode diarization loads it lazily anyway if it isn't done yet.
         let diarizeKickoff = Task {
             try? await state.diarization.loadModel()
         }
@@ -271,10 +312,8 @@ struct ModelDownloadingView: View {
                 state.push(.modelReady)
                 return
             }
-            if case .failed = state.transcription.loadState {
-                // For v1, just stay on this screen with 0% — better failure UX is v2.
-                return
-            }
+            // On .failed we keep looping: the retryCard button re-runs loadModel, and this
+            // watcher picks the new state right up (returning here left a dead-end screen).
         }
     }
 
@@ -285,7 +324,7 @@ struct ModelDownloadingView: View {
 
         static let all: [TeachCard] = [
             TeachCard(lead: "The whole transcription engine runs", italic: "right here", tail: ", on this device."),
-            TeachCard(lead: "Sound recognition catches", italic: "96 different sounds", tail: ", from doorbells to smoke alarms."),
+            TeachCard(lead: "Sound recognition catches", italic: "dozens of sounds", tail: ", from doorbells to smoke alarms."),
             TeachCard(lead: "Your conversations", italic: "never leave", tail: " your phone — not even to us."),
             TeachCard(lead: "Speakers are auto-detected, so", italic: "you don't tag", tail: " who's who."),
         ]

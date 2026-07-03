@@ -94,6 +94,13 @@ struct ModelPrepView: View {
     }
 
     private func startDownloadIfReady() async {
+        // If the model is ALREADY loaded (e.g. replayed onboarding, or a fast cached load that
+        // resolved before this view appeared), the loadModel call below returns without ever
+        // changing loadState — so the onChange advance never fires and the screen dead-ends.
+        if case .ready = state.transcription.loadState {
+            if !state.path.contains(.modelDownloading) { state.push(.modelDownloading) }
+            return
+        }
         // No-op if already downloaded / loading; loadModel itself short-circuits.
         try? await state.transcription.loadModel()
     }
@@ -103,7 +110,9 @@ struct ModelPrepView: View {
             HStack(spacing: 12) {
                 ModelHeroIcon(size: 56)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("OpenAI Whisper · Small")
+                    // Derived from the actual selection — this card once hardcoded "Small · 244 MB"
+                    // while new users download Base (74 MB), contradicting the very next screen.
+                    Text("OpenAI · \(state.tweaks.transcriptionModel.displayName)")
                         .font(.scaled(size: 15, weight: .bold, relativeTo: .subheadline))
                         .foregroundStyle(theme.ink)
                     Text("Multilingual · 99 languages, auto-detected")
@@ -119,7 +128,7 @@ struct ModelPrepView: View {
             )
 
             VStack(spacing: 12) {
-                row(icon: "icloud.and.arrow.down", title: "244 MB", subtitle: "About 30 seconds on Wi-Fi")
+                row(icon: "icloud.and.arrow.down", title: "\(state.tweaks.transcriptionModel.sizeMB) MB", subtitle: "A quick download on Wi-Fi")
                 row(icon: "wind", title: "Wi-Fi by default", subtitle: "Tap below to use cellular if you'd rather not wait")
                 row(icon: "lock.fill", title: "Stays on this phone", subtitle: "Never sent back to a server")
             }

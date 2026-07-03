@@ -155,6 +155,8 @@ struct LanguageSettingsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // VoiceOver: the checkmark is visual-only — expose selection as a trait.
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
     // MARK: - Output
@@ -202,7 +204,7 @@ struct LanguageSettingsView: View {
 
     private var aboutCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            (Text("Earshot runs Whisper Small on this phone. The model already covers ")
+            (Text("Earshot runs \(state.tweaks.transcriptionModel.displayName) on this phone. The model already covers ")
                 .foregroundStyle(theme.inkSoft)
             + Text("99 languages")
                 .foregroundStyle(theme.ink).fontWeight(.semibold)

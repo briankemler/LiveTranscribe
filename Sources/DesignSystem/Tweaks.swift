@@ -129,8 +129,11 @@ struct Tweaks: Sendable, Equatable, Codable {
             }
         }
         var blurb: String {
+            // Honest copy: .auto and .smart currently behave identically (voice-based
+            // "Speaker N" labels) — .auto once promised "Real names", a feature that
+            // doesn't exist yet. Speaker naming is a roadmap item; revisit then.
             switch self {
-            case .auto: "Real names"
+            case .auto: "Automatic labels"
             case .smart: "Speaker 1, 2, 3…"
             case .off: "No labels"
             }
@@ -150,24 +153,27 @@ extension Tweaks {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = Tweaks()
-        self.palette               = try c.decodeIfPresent(PaletteID.self,           forKey: .palette)               ?? defaults.palette
-        self.textSize              = try c.decodeIfPresent(TextSize.self,            forKey: .textSize)              ?? defaults.textSize
-        self.diarization           = try c.decodeIfPresent(Diarization.self,         forKey: .diarization)           ?? defaults.diarization
-        self.groupSpeakerCount     = try c.decodeIfPresent(GroupSpeakerCount.self,   forKey: .groupSpeakerCount)     ?? defaults.groupSpeakerCount
-        self.captionLayout         = try c.decodeIfPresent(CaptionLayout.self,       forKey: .captionLayout)         ?? defaults.captionLayout
-        self.transcriptionLanguage = try c.decodeIfPresent(TranscriptionLanguage.self, forKey: .transcriptionLanguage) ?? defaults.transcriptionLanguage
-        self.translateToEnglish    = try c.decodeIfPresent(Bool.self,                forKey: .translateToEnglish)    ?? defaults.translateToEnglish
-        self.transcriptionModel    = try c.decodeIfPresent(WhisperModelChoice.self,  forKey: .transcriptionModel)    ?? defaults.transcriptionModel
-        self.showSpeakerColors     = try c.decodeIfPresent(Bool.self,                forKey: .showSpeakerColors)     ?? defaults.showSpeakerColors
-        self.showAmbientSounds     = try c.decodeIfPresent(Bool.self,                forKey: .showAmbientSounds)     ?? defaults.showAmbientSounds
-        self.vibrateOnAlerts       = try c.decodeIfPresent(Bool.self,                forKey: .vibrateOnAlerts)       ?? defaults.vibrateOnAlerts
-        self.soundRecognitionEnabled = try c.decodeIfPresent(Bool.self,              forKey: .soundRecognitionEnabled) ?? defaults.soundRecognitionEnabled
-        self.armedSounds           = try c.decodeIfPresent(Set<String>.self,         forKey: .armedSounds)           ?? defaults.armedSounds
+        // `try?` per field, not `try`: with `try`, ONE stale enum raw value (e.g. a removed case
+        // in a future build) would throw out of this initializer and reset EVERY setting to
+        // defaults. Per-field recovery resets only the field that no longer decodes.
+        self.palette               = (try? c.decodeIfPresent(PaletteID.self,           forKey: .palette))               ?? defaults.palette
+        self.textSize              = (try? c.decodeIfPresent(TextSize.self,            forKey: .textSize))              ?? defaults.textSize
+        self.diarization           = (try? c.decodeIfPresent(Diarization.self,         forKey: .diarization))           ?? defaults.diarization
+        self.groupSpeakerCount     = (try? c.decodeIfPresent(GroupSpeakerCount.self,   forKey: .groupSpeakerCount))     ?? defaults.groupSpeakerCount
+        self.captionLayout         = (try? c.decodeIfPresent(CaptionLayout.self,       forKey: .captionLayout))         ?? defaults.captionLayout
+        self.transcriptionLanguage = (try? c.decodeIfPresent(TranscriptionLanguage.self, forKey: .transcriptionLanguage)) ?? defaults.transcriptionLanguage
+        self.translateToEnglish    = (try? c.decodeIfPresent(Bool.self,                forKey: .translateToEnglish))    ?? defaults.translateToEnglish
+        self.transcriptionModel    = (try? c.decodeIfPresent(WhisperModelChoice.self,  forKey: .transcriptionModel))    ?? defaults.transcriptionModel
+        self.showSpeakerColors     = (try? c.decodeIfPresent(Bool.self,                forKey: .showSpeakerColors))     ?? defaults.showSpeakerColors
+        self.showAmbientSounds     = (try? c.decodeIfPresent(Bool.self,                forKey: .showAmbientSounds))     ?? defaults.showAmbientSounds
+        self.vibrateOnAlerts       = (try? c.decodeIfPresent(Bool.self,                forKey: .vibrateOnAlerts))       ?? defaults.vibrateOnAlerts
+        self.soundRecognitionEnabled = (try? c.decodeIfPresent(Bool.self,              forKey: .soundRecognitionEnabled)) ?? defaults.soundRecognitionEnabled
+        self.armedSounds           = (try? c.decodeIfPresent(Set<String>.self,         forKey: .armedSounds))           ?? defaults.armedSounds
         // `armedAmbientSounds` was removed in build 16. JSON blobs from build 14/15 that
         // still contain that key are simply ignored — no behavior change for the user
         // since non-urgent detection is now always-armed via SoundCatalog.allNonUrgentIDs.
-        self.showDiagnostics       = try c.decodeIfPresent(Bool.self,                forKey: .showDiagnostics)       ?? defaults.showDiagnostics
-        self.showTweaksPanel       = try c.decodeIfPresent(Bool.self,                forKey: .showTweaksPanel)       ?? defaults.showTweaksPanel
+        self.showDiagnostics       = (try? c.decodeIfPresent(Bool.self,                forKey: .showDiagnostics))       ?? defaults.showDiagnostics
+        self.showTweaksPanel       = (try? c.decodeIfPresent(Bool.self,                forKey: .showTweaksPanel))       ?? defaults.showTweaksPanel
     }
 }
 

@@ -289,6 +289,10 @@ final class TranscriptionService {
                     self.loadState = .ready
                 }
             } catch {
+                // CANCELLATION is not failure: setModel() cancels the in-flight load when the
+                // user switches models. Deleting the (healthy) cache or flipping loadState to
+                // .failed here would sabotage the load the user actually asked for.
+                if error is CancellationError { throw error }
                 // If we trusted an on-disk model and it still failed to load, the cache is
                 // corrupt/incomplete in a way our component check didn't catch. Remove it so the
                 // next attempt re-downloads a clean copy — otherwise the user is stuck forever.
@@ -296,14 +300,27 @@ final class TranscriptionService {
                     try? FileManager.default.removeItem(at: cachedFolder)
                     self.downloadedModels.remove(target)
                 }
-                self.loadState = .failed(message: String(describing: error))
+                // Only surface the failure if this is still the model we want — a stale task's
+                // error must not clobber the state of a newer load.
+                if self.modelName == target {
+                    self.loadState = .failed(message: String(describing: error))
+                }
                 throw error
             }
         }
         self.loadTask = task
-        defer { self.loadTask = nil }
+        let token = UUID()
+        self.loadTaskToken = token
+        // Clear only OUR OWN task on the way out. An unconditional `loadTask = nil` here could
+        // clobber a newer task installed by setModel() while we were suspended, letting a third
+        // caller start a duplicate concurrent download.
+        defer { if self.loadTaskToken == token { self.loadTask = nil; self.loadTaskToken = nil } }
         try await task.value
     }
+
+    /// Identity of the current `loadTask`, so a stale load's cleanup can't cancel out a newer one
+    /// (`Task` is a struct — no reference identity to compare).
+    private var loadTaskToken: UUID?
 
     /// Bridge to `WhisperKit.download(...)` from a nonisolated context. Keeps the non-Sendable
     /// `(Progress) -> Void` closure entirely off MainActor so Swift 6 strict concurrency is happy.

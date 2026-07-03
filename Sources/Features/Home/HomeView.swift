@@ -62,6 +62,17 @@ struct HomeView: View {
             .padding(.leading, 8)
     }
 
+    /// Derived, not hardcoded: the card once claimed "5 urgent sounds" regardless of what the
+    /// user actually armed (or whether sound recognition was on at all).
+    private var startCardSubtitle: String {
+        guard state.tweaks.soundRecognitionEnabled else { return "Auto-detect speakers" }
+        let armed = SoundCatalog.urgent.filter { sound in
+            sound.classifierIDs.contains { state.tweaks.armedSounds.contains($0) }
+        }.count
+        if armed == 0 { return "Auto-detect speakers" }
+        return "Auto-detect speakers · \(armed) urgent sound\(armed == 1 ? "" : "s")"
+    }
+
     private var startCard: some View {
         Button {
             state.startLive(.oneToOne)
@@ -78,7 +89,7 @@ struct HomeView: View {
                         .font(.scaled(size: 19, weight: .bold, relativeTo: .title3))
                         .tracking(-0.2)
                         .foregroundStyle(theme.ink)
-                    Text("Auto-detect speakers · 5 urgent sounds")
+                    Text(startCardSubtitle)
                         .font(.scaled(size: 12, relativeTo: .caption1))
                         .foregroundStyle(theme.inkSoft)
                 }

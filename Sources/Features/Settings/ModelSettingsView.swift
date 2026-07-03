@@ -149,6 +149,8 @@ struct ModelSettingsView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            // VoiceOver: the checkmark is visual-only — expose selection as a trait.
+            .accessibilityAddTraits(isSelected ? [.isSelected] : [])
 
             if canDelete {
                 Button {
@@ -246,7 +248,7 @@ struct ModelSettingsView: View {
                 .font(.scaled(size: 13, relativeTo: .footnote))
                 .lineSpacing(3)
 
-            Text("Whisper Small is the recommended default — it's the best balance of accuracy and real-time performance on iPhone. Tiny and Base are faster but miss more words; useful if you're on an older phone or want to save space.")
+            Text("Base is the default — fast to download and quick on any supported iPhone. Small is more accurate if you want the best transcription; Tiny is the fastest and lightest but misses more words.")
                 .font(.scaled(size: 12, relativeTo: .caption1))
                 .foregroundStyle(theme.inkMute)
                 .lineSpacing(3)

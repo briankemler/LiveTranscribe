@@ -259,57 +259,8 @@ struct CaptionsView: View {
         .onReceive(ticker) { tickerNow = $0; updateKeepAwake() }
 
         // MARK: Session lifecycle (same wiring as the old LiveView)
-        .task {
-            let s = LiveSession(
-                mode: mode,
-                transcription: state.transcription,
-                diarization: state.diarization,
-                modelContext: modelContext
-            )
-            s.language = tweaks.transcriptionLanguage.whisperCode
-            s.translateToEnglish = tweaks.translateToEnglish
-            s.armedSounds = tweaks.armedSounds
-            s.soundRecognitionEnabled = tweaks.soundRecognitionEnabled
-            s.diarizationEnabled = tweaks.diarization != .off
-            s.speakerCountHint = tweaks.groupSpeakerCount.count
-            s.tuning = state.diarizationTuning
-            session = s
-            updateKeepAwake()  // keep the screen awake now that captioning is starting
-#if DEBUG
-            // App Store screenshot path: `--demo-captions` seeds scripted lines and skips the
-            // real mic + model pipeline (the Simulator can't capture audio). Debug-only.
-            if ProcessInfo.processInfo.arguments.contains("--demo-captions") {
-                s.seedDemoCaptions(
-                    history: [
-                        .init(speaker: .maya, text: "I had the most ridiculous run this morning —"),
-                        .init(speaker: .maya, text: "a goose chased me halfway around the lake."),
-                    ],
-                    current: .init(speaker: .maya, text: "Honestly though, the espresso here is unreal.")
-                )
-                return
-            }
-            // Multi-mic group screen: `--demo-mics N` fakes N mics with rotating activity so the
-            // mic pills can be screenshotted/demoed on the Simulator. Debug-only.
-            let args = ProcessInfo.processInfo.arguments
-            if let i = args.firstIndex(of: "--demo-mics"), i + 1 < args.count, let n = Int(args[i + 1]) {
-                s.seedDemoMics(count: n)
-                return
-            }
-            // Named-speaker group bubbles (Jordan / Maya / Priya / You) for screenshots.
-            if args.contains("--demo-group"), let last = SampleScripts.group.last {
-                s.seedDemoCaptions(history: Array(SampleScripts.group.dropLast()), current: last)
-                return
-            }
-#endif
-            await s.start()
-        }
-        .onDisappear {
-            hideBarTask?.cancel()
-            ambientClearTask?.cancel()
-            session?.stop()
-            // Leaving the captions screen → restore the device's normal Auto-Lock.
-            UIApplication.shared.isIdleTimerDisabled = false
-        }
+        .task { await startSessionIfNeeded() }
+        .onDisappear { handleDisappear() }
         // Keep-awake: re-evaluate whenever the app foregrounds/backgrounds or the session
         // errors out, so the screen only stays lit while we're actually captioning up front.
         .onChange(of: scenePhase) { _, _ in updateKeepAwake() }
@@ -419,7 +370,9 @@ struct CaptionsView: View {
     private var captionFeed: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                // Lazy: a plain VStack re-renders EVERY line of the session on each body
+                // evaluation, so render cost grew with conversation length.
+                LazyVStack(alignment: .leading, spacing: 18) {
                     // Top spacer pushes initial content below the status-pill row.
                     Spacer().frame(height: mode == .group ? 92 : 56)
 
@@ -509,6 +462,72 @@ struct CaptionsView: View {
     /// Keep the screen awake while the captions screen is foreground and the session is
     /// healthy (no mic/permission error), so the display never dims or locks mid-conversation.
     /// `.onDisappear` resets this to `false`, so normal Auto-Lock resumes everywhere else.
+    /// Session boot, extracted from `.task` (the inline closure tipped the body over the
+    /// type-checker's complexity limit). Re-appearing after something was pushed on top
+    /// (urgent-sound AlertView, Settings, the tuning panel) must NOT restart the conversation —
+    /// reuse the running session. Previously this created a fresh session on every appearance,
+    /// so a smoke-alarm alert mid-conversation wiped the whole transcript.
+    private func startSessionIfNeeded() async {
+        guard session == nil else { return }
+        let s = LiveSession(
+            mode: mode,
+            transcription: state.transcription,
+            diarization: state.diarization,
+            modelContext: modelContext
+        )
+        s.language = tweaks.transcriptionLanguage.whisperCode
+        s.translateToEnglish = tweaks.translateToEnglish
+        s.armedSounds = tweaks.armedSounds
+        s.soundRecognitionEnabled = tweaks.soundRecognitionEnabled
+        s.diarizationEnabled = tweaks.diarization != .off
+        s.speakerCountHint = tweaks.groupSpeakerCount.count
+        s.tuning = state.diarizationTuning
+        session = s
+        updateKeepAwake()  // keep the screen awake now that captioning is starting
+#if DEBUG
+        // App Store screenshot path: `--demo-captions` seeds scripted lines and skips the
+        // real mic + model pipeline (the Simulator can't capture audio). Debug-only.
+        if ProcessInfo.processInfo.arguments.contains("--demo-captions") {
+            s.seedDemoCaptions(
+                history: [
+                    .init(speaker: .maya, text: "I had the most ridiculous run this morning —"),
+                    .init(speaker: .maya, text: "a goose chased me halfway around the lake."),
+                ],
+                current: .init(speaker: .maya, text: "Honestly though, the espresso here is unreal.")
+            )
+            return
+        }
+        // Multi-mic group screen: `--demo-mics N` fakes N mics with rotating activity so the
+        // mic pills can be screenshotted/demoed on the Simulator. Debug-only.
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "--demo-mics"), i + 1 < args.count, let n = Int(args[i + 1]) {
+            s.seedDemoMics(count: n)
+            return
+        }
+        // Named-speaker group bubbles (Jordan / Maya / Priya / You) for screenshots.
+        if args.contains("--demo-group"), let last = SampleScripts.group.last {
+            s.seedDemoCaptions(history: Array(SampleScripts.group.dropLast()), current: last)
+            return
+        }
+#endif
+        await s.start()
+    }
+
+    /// Teardown, extracted from `.onDisappear`. Only tear the session down when the captions
+    /// route is actually gone from the navigation stack (the user left). A push ON TOP of us
+    /// (AlertView, Settings, Diarization tuning) also fires onDisappear — the session must
+    /// survive those.
+    private func handleDisappear() {
+        hideBarTask?.cancel()
+        ambientClearTask?.cancel()
+        let liveRoute: Route = (mode == .group) ? .liveGroup : .live11
+        if !state.path.contains(liveRoute) {
+            session?.stop()
+            // Leaving the captions screen → restore the device's normal Auto-Lock.
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
+    }
+
     private func updateKeepAwake() {
         UIApplication.shared.isIdleTimerDisabled = (scenePhase == .active && session?.error == nil)
     }
@@ -611,7 +630,7 @@ struct CaptionsView: View {
     private var bubbleFeed: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: 16) {
                     Spacer().frame(height: 8) // small gap below the opaque header
 
                     ForEach(feedHistory) { line in

@@ -118,7 +118,14 @@ final class AudioCaptureService {
             try installTap()
             try startEngine()
             isRecording = true
+            installSessionObservers()
         } catch {
+            // Roll back everything the partial start left behind — in particular the input tap.
+            // A second installTap on the same bus CRASHES AVAudioEngine, so a failed startEngine
+            // followed by the user's Retry must begin from a clean node.
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+            sink = nil
             cont.finish()
             self.continuation = nil
             throw error
@@ -129,6 +136,7 @@ final class AudioCaptureService {
     /// Stops the engine and finishes the stream. Idempotent.
     func stop() {
         guard isRecording else { return }
+        removeSessionObservers()
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
@@ -137,6 +145,112 @@ final class AudioCaptureService {
         sink = nil
         isRecording = false
         audioLevel = 0
+    }
+
+    // MARK: - Interruption + route-change recovery
+
+    /// A live-captioning session must survive the audio events that routinely occur mid-
+    /// conversation: a phone call (interruption), plugging/unplugging headphones or a Bluetooth
+    /// device connecting (route change — which can also re-hijack the input away from the mic we
+    /// pinned in `preferDeviceMic`). Without these observers the engine just stops and the UI
+    /// keeps saying "Listening" over a dead mic.
+    private var sessionObservers: [NSObjectProtocol] = []
+
+    private func installSessionObservers() {
+        let nc = NotificationCenter.default
+        sessionObservers.append(nc.addObserver(
+            forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let typeRaw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            let optsRaw = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt
+            MainActor.assumeIsolated {
+                self?.handleInterruption(typeRaw: typeRaw, optionsRaw: optsRaw)
+            }
+        })
+        sessionObservers.append(nc.addObserver(
+            forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let reasonRaw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
+            MainActor.assumeIsolated {
+                self?.handleRouteChange(reasonRaw: reasonRaw)
+            }
+        })
+    }
+
+    private func removeSessionObservers() {
+        sessionObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        sessionObservers = []
+    }
+
+    private func handleInterruption(typeRaw: UInt?, optionsRaw: UInt?) {
+        guard isRecording, let typeRaw, let type = AVAudioSession.InterruptionType(rawValue: typeRaw) else { return }
+        switch type {
+        case .began:
+            log.info("audio interruption began — engine paused by system")
+        case .ended:
+            let opts = AVAudioSession.InterruptionOptions(rawValue: optionsRaw ?? 0)
+            guard opts.contains(.shouldResume) else {
+                log.info("interruption ended without shouldResume — attempting restart anyway")
+                restartCapture()
+                return
+            }
+            log.info("audio interruption ended — resuming capture")
+            restartCapture()
+        @unknown default:
+            break
+        }
+    }
+
+    private func handleRouteChange(reasonRaw: UInt?) {
+        guard isRecording, let reasonRaw,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonRaw) else { return }
+        switch reason {
+        case .oldDeviceUnavailable, .newDeviceAvailable, .override, .routeConfigurationChange:
+            log.info("audio route changed (\(reasonRaw)) — re-pinning device mic and restarting")
+            restartCapture()
+        default:
+            break
+        }
+    }
+
+    /// Re-pin the device mic and restart the engine after an interruption/route change, rebuilding
+    /// the tap if the input format changed underneath us. Feeds the SAME AsyncStream continuation,
+    /// so `LiveSession`'s pipeline keeps flowing with no visible reset.
+    private func restartCapture() {
+        guard isRecording, let continuation else { return }
+        let session = AVAudioSession.sharedInstance()
+        try? session.setActive(true, options: [])
+        preferDeviceMic(session)
+
+        engine.inputNode.removeTap(onBus: 0)
+        let input = engine.inputNode
+        let format = input.outputFormat(forBus: 0)
+        guard format.sampleRate > 0 else {
+            log.error("restartCapture: input format unavailable — giving up until next event")
+            return
+        }
+        micCount = detectMicCount(channelCount: Int(format.channelCount))
+        inputName = session.currentRoute.inputs.first?.portName ?? ""
+        let newSink = AudioSink(
+            inputSampleRate: format.sampleRate,
+            inputChannels: Int(format.channelCount),
+            outputSampleRate: targetSampleRate,
+            multiMic: micCount >= 2,
+            continuation: continuation,
+            onLevel: { [weak self] level in
+                Task { @MainActor [weak self] in self?.audioLevel = level }
+            },
+            onRawBuffer: onRawBuffer
+        )
+        self.sink = newSink
+        newSink.install(on: input, bufferSize: 1024, format: format)
+        engine.prepare()
+        do {
+            try engine.start()
+            log.info("capture restarted on \(self.inputName, privacy: .public) sr=\(format.sampleRate)")
+        } catch {
+            log.error("engine restart failed: \(String(describing: error))")
+        }
     }
 
     /// Pauses playback without tearing down the audio session. Resume with `resume()`.

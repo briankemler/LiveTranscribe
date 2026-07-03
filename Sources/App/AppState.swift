@@ -49,13 +49,25 @@ final class AppState {
     var currentTheme: Theme { tweaks.palette.theme }
 
     init() {
-        let loadedTweaks = TweaksStore.load()
+        var loadedTweaks = TweaksStore.load()
+        // Migration: the pre-1.0.1 default model was Whisper Small, and users who never touched
+        // a setting have NO persisted tweaks blob — so the new Base default would silently
+        // switch them and trigger a surprise re-download while their Small sits cached on disk.
+        // If there's no blob but Small is already downloaded, keep Small and persist the choice.
+        if TweaksStore.defaults.data(forKey: TweaksStore.storageKey) == nil,
+           TranscriptionService.isModelComplete(WhisperModelChoice.small.whisperKitName) {
+            loadedTweaks.transcriptionModel = .small
+            TweaksStore.save(loadedTweaks)
+        }
         self.tweaks = loadedTweaks
         // Respect the user's saved model choice; new users default to Base (`Tweaks` default) for
         // a fast first download. Existing users keep whatever they had — no surprise re-download.
         self.transcription = TranscriptionService(network: network, modelName: loadedTweaks.transcriptionModel.whisperKitName)
         self.diarization = DiarizationService(network: network)
         self.modelContainer = ConversationStore.makeContainer()
+        // Backfill `endedAt` on conversations orphaned by a crash/force-quit — runs before any
+        // new session exists, so it can never touch a live record.
+        ConversationStore.repairUnfinishedConversations(in: modelContainer.mainContext)
         self.onboardingSeen = UserDefaults.standard.bool(forKey: Self.onboardingSeenKey)
         applyLaunchArgs()
     }

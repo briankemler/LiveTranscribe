@@ -77,6 +77,8 @@ struct DiarizationSettingsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // VoiceOver: the checkmark is visual-only — expose selection as a trait.
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
     /// Read-only readout of the current input device so the user can confirm a multi-channel

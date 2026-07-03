@@ -270,6 +270,13 @@ final class LiveSession {
                 stop()
                 return
             }
+            // loadModel RETURNS (doesn't throw) when the download is gated on Wi-Fi. Without this
+            // check the mic pipeline would spin with no model, throwing modelNotLoaded per pass.
+            if case .waitingForWifi = transcription.loadState {
+                self.error = "Connect to Wi-Fi to download the speech model, then tap Retry."
+                failureKind = .model
+                return
+            }
 
             // 2b. Warm the diarization model in the background so the first pass isn't stalled
             //     on Core ML compile. Fire-and-forget — `diarize()` lazy-loads anyway if needed.
@@ -467,19 +474,32 @@ final class LiveSession {
         try? ctx.save()
     }
 
-    /// Set `endedAt` and flush. Cheap if the session was never started or has no context.
+    /// Set `endedAt` and flush — or, if the session captured nothing at all, delete the record:
+    /// an empty conversation is invisible in History (which keys off `lines.first`) and would
+    /// otherwise sit in the store forever as an undeletable ghost.
     private func finalizeConversationRecord() {
         guard let ctx = modelContext, let r = record else { return }
-        r.endedAt = Date()
+        if r.lines.isEmpty && r.detections.isEmpty {
+            ctx.delete(r)
+            record = nil
+        } else {
+            r.endedAt = Date()
+        }
         try? ctx.save()
     }
 
+    /// Ids of lines already persisted this session, and their records. The Set replaces a linear
+    /// scan of `record.lines` per emission (O(n) per line → O(n²) per session); the dictionary
+    /// lets `updatePersistedSpeaker` re-tag without scanning the relationship each time.
+    private var persistedLineIDs: Set<UUID> = []
+    private var lineRecordsByID: [UUID: TranscriptLineRecord] = [:]
+
     /// Append a `TranscriptLineRecord` mirroring `line` to the current conversation. Idempotent
-    /// when called with the same `TranscriptLine.id` — checks the record's existing line ids.
+    /// when called with the same `TranscriptLine.id`.
     fileprivate func persistLine(_ line: TranscriptLine, audioStart: TimeInterval, audioEnd: TimeInterval) {
         guard let ctx = modelContext, let r = record else { return }
         // The line's stable id is its dedupe key — same UUID = same persisted record.
-        if r.lines.contains(where: { $0.id == line.id }) { return }
+        if persistedLineIDs.contains(line.id) { return }
         let rec = TranscriptLineRecord(
             id: line.id,
             speakerId: line.speaker.id,
@@ -492,6 +512,8 @@ final class LiveSession {
         )
         rec.conversation = r
         ctx.insert(rec)
+        persistedLineIDs.insert(line.id)
+        lineRecordsByID[line.id] = rec
         try? ctx.save()
     }
 
@@ -527,12 +549,33 @@ final class LiveSession {
             chunksReceived += 1
             bufferSeconds = Double(buffer.count) / sampleRate
 
+            // Bound the buffer BEFORE any of the bail-outs below. This used to live at the bottom
+            // of the loop, after `continue`s for empty transcripts and transcribe errors — so a
+            // quiet room (or a model stuck waiting for Wi-Fi) grew the buffer without limit,
+            // ~3.7 MB/min until jetsam. Trimming here runs on every chunk unconditionally.
+            let keep = Int(bufferKeepSeconds * sampleRate)
+            if buffer.count > keep {
+                buffer.removeFirst(buffer.count - keep)
+            }
+
+            // Kick off a throttled software-diarization pass (no-op unless it's due + active).
+            // Also above the bail-outs: during silence the empty passes are what clear stale
+            // speaker spans from the timeline.
+            maybeRunDiarizationPass(currentClock: Double(totalSamplesAppended) / sampleRate)
+
             // Multi-mic: smooth the per-channel levels for the pills and track the active mic.
             // We hold the last active mic through brief gaps (the silence pill covers real silence).
+            // Writes are guarded so @Observable doesn't invalidate views 10x/sec for no change.
             if micCount >= 2, chunk.channelRMS.count == micCount {
                 if micLevels.count != micCount { micLevels = chunk.channelRMS }
-                else { for i in 0..<micCount { micLevels[i] += (chunk.channelRMS[i] - micLevels[i]) * 0.4 } }
-                if chunk.activeChannel >= 0 { activeMic = chunk.activeChannel }
+                else {
+                    for i in 0..<micCount where abs(chunk.channelRMS[i] - micLevels[i]) > 0.01 {
+                        micLevels[i] += (chunk.channelRMS[i] - micLevels[i]) * 0.4
+                    }
+                }
+                if chunk.activeChannel >= 0, activeMic != chunk.activeChannel {
+                    activeMic = chunk.activeChannel
+                }
             }
 
             if chunksReceived % 10 == 1 {
@@ -544,7 +587,9 @@ final class LiveSession {
             if totalSeconds < windowSeconds { continue }
 
             let now = chunk.timestamp
-            if now - lastEmissionTime < strideSeconds && !lastTranscriptText.isEmpty { continue }
+            // Throttle unconditionally. This used to be bypassed while `lastTranscriptText` was
+            // empty — meaning a quiet room ran a full Whisper pass on EVERY ~100 ms chunk.
+            if now - lastEmissionTime < strideSeconds { continue }
             lastEmissionTime = now
 
             // Transcribe the most recent windowSeconds worth.
@@ -560,6 +605,9 @@ final class LiveSession {
                 log.error("transcribe error: \(String(describing: error))")
                 continue
             }
+            // stop() may have cancelled us while the transcribe was in flight — don't mutate
+            // post-stop state (lines/currentLine/persistence) with a stale result.
+            if Task.isCancelled { break }
             transcribePasses += 1
             lastRawTranscript = transcript
             log.info("transcribe pass \(self.transcribePasses) → '\(transcript)'")
@@ -627,18 +675,11 @@ final class LiveSession {
                 pruneLineClocks()
             }
             currentLine = line
-            currentLineAudioStart = partial.audioStart
-            currentLineAudioEnd = partial.audioEnd
-
-            // Bound the buffer so we don't grow forever. Must exceed `diarizeWindowSeconds` so the
-            // diarization span is never clipped (~6.4 MB at 100 s · 16 kHz · Float32).
-            let keep = Int(bufferKeepSeconds * sampleRate)
-            if buffer.count > keep {
-                buffer.removeFirst(buffer.count - keep)
-            }
-
-            // Kick off a throttled software-diarization pass (no-op unless it's due + active).
-            maybeRunDiarizationPass(currentClock: Double(totalSamplesAppended) / sampleRate)
+            // Persist SESSION-RELATIVE audio-clock times (same values as lineClocks), not the
+            // host-uptime `partial.audioStart/End` — those made Rewind/exports show absurd
+            // hour-scale timestamps for a minutes-long conversation.
+            currentLineAudioStart = clockStart
+            currentLineAudioEnd = clockEnd
         }
     }
 
@@ -682,7 +723,14 @@ final class LiveSession {
         }
         // Cap the timeline at the user's expected count (or the auto ceiling) so it can't keep
         // minting spurious speakers. Tracks the picker / dev tuning live if changed mid-session.
-        speakerTimeline.maxSpeakers = speakerCountHint ?? autoMaxSpeakers
+        let cap = speakerCountHint ?? autoMaxSpeakers
+        if speakerTimeline.speakerCount > cap {
+            // The user lowered the count below ids already allocated — the cap alone can't shrink
+            // existing ids, so start a fresh timeline and let the next passes re-cluster under
+            // the new cap. Recent lines re-attribute as coverage rebuilds.
+            speakerTimeline = SpeakerTimeline()
+        }
+        speakerTimeline.maxSpeakers = cap
         speakerTimeline.minNewSpeakerSeconds = tuning.minNewSpeakerSeconds
         speakerTimeline.ingest(absolute, windowStart: windowStart, windowEnd: windowEnd)
         diarizedSpeakerCount = speakerTimeline.speakerCount
@@ -708,6 +756,7 @@ final class LiveSession {
 
         let recentCount = 8
         let startIndex = max(0, lines.count - recentCount)
+        var touchedPersisted = false
         for i in startIndex..<lines.count {
             let line = lines[i]
             guard let window = lineClocks[line.id],
@@ -718,8 +767,10 @@ final class LiveSession {
                 id: line.id, speaker: speaker, text: line.text,
                 emphasis: line.emphasis, timestamp: line.timestamp
             )
-            updatePersistedSpeaker(lineId: line.id, speaker: speaker)
+            if updatePersistedSpeaker(lineId: line.id, speaker: speaker) { touchedPersisted = true }
         }
+        // One save for the whole batch instead of one per re-tagged line.
+        if touchedPersisted, let ctx = modelContext { try? ctx.save() }
     }
 
     /// Keep `lineClocks` bounded — retain only the ids of recent lines plus the current one.
@@ -731,14 +782,16 @@ final class LiveSession {
     }
 
     /// Update a persisted `TranscriptLineRecord`'s speaker fields after a diarization re-tag.
-    private func updatePersistedSpeaker(lineId: UUID, speaker: Speaker) {
-        guard let ctx = modelContext, let r = record else { return }
-        guard let rec = r.lines.first(where: { $0.id == lineId }) else { return }
+    /// Returns true if a record was mutated; the CALLER batches the context save.
+    @discardableResult
+    private func updatePersistedSpeaker(lineId: UUID, speaker: Speaker) -> Bool {
+        guard modelContext != nil, record != nil else { return false }
+        guard let rec = lineRecordsByID[lineId] else { return false }
         rec.speakerId = speaker.id
         rec.speakerDisplayName = speaker.displayName
         rec.speakerInitial = speaker.initial
         rec.speakerColorRoleRaw = speaker.colorRole.raw
-        try? ctx.save()
+        return true
     }
 
     /// Naive longest-common-prefix tail extractor. Whisper's overlapping windows produce

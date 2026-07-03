@@ -55,7 +55,8 @@ struct TextSizeSettingsView: View {
         } label: {
             HStack {
                 Text(size.label)
-                    .font(.system(size: 15 * size.scale, weight: isSelected ? .semibold : .regular))
+                    // .scaled so the row respects system Dynamic Type on top of the in-app scale.
+                    .font(.scaled(size: 15 * size.scale, weight: isSelected ? .semibold : .regular, relativeTo: .subheadline))
                     .foregroundStyle(theme.ink)
                 Spacer()
                 if isSelected {
@@ -69,6 +70,8 @@ struct TextSizeSettingsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // VoiceOver: the checkmark is visual-only — expose selection as a trait.
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
     private var preview: some View {
@@ -81,7 +84,7 @@ struct TextSizeSettingsView: View {
                 .padding(.horizontal, 8)
 
             Text("A goose chased me around the lake.")
-                .font(.system(size: size, weight: .medium, design: .serif))
+                .font(.scaled(size: size, weight: .medium, design: .serif, relativeTo: .title2))
                 .tracking(-0.3)
                 .foregroundStyle(theme.ink)
                 .lineSpacing(4)

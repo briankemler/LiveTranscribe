@@ -124,6 +124,11 @@ struct SettingsView: View {
                                 binding: $bindable.tweaks.showDiagnostics,
                                 sub: "Overlay RMS · chunks · buffer · pass count · mic on the Live screen"
                             ),
+                            .toggle(
+                                label: "Show Tweaks panel",
+                                binding: $bindable.tweaks.showTweaksPanel,
+                                sub: "Floating side-tab for palette · showcase deck (screenshot tooling)"
+                            ),
                             .value(
                                 label: "Diarization tuning",
                                 value: "",
@@ -181,8 +186,12 @@ struct SettingsView: View {
 
     /// Right-side value on the Sound recognition row. "5 of 5 armed" or "Off" when none.
     private var armedSummary: String {
+        // Count URGENT SOUNDS with at least one armed classifier id — not id overlap with the
+        // 5-sound default set, which showed "Off" for users who armed non-default sounds.
         let total = SoundCatalog.urgent.count
-        let armed = state.tweaks.armedSounds.intersection(SoundCatalog.defaultArmedIDs).count
+        let armed = SoundCatalog.urgent.filter { sound in
+            sound.classifierIDs.contains { state.tweaks.armedSounds.contains($0) }
+        }.count
         if armed == 0 { return "Off" }
         return "\(armed) of \(total) armed"
     }
@@ -227,7 +236,9 @@ struct SettingsView: View {
     /// arg used by screenshot tooling.
     private func replayOnboarding() {
         state.onboardingSeen = false
-        state.path = [.onboarding1]
+        // With onboardingSeen false the nav ROOT becomes onboarding step 1 — pushing another
+        // copy on top stacked two identical step-1 screens.
+        state.path = []
     }
 
     /// Open Mail (or whichever default mail app is set) with a pre-filled feedback message.
