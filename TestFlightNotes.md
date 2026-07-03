@@ -14,6 +14,40 @@ Keep under 4000 chars. Latest build notes first.
 
 ---
 
+## Build 37 (1.0.1)
+
+A deep stability pass — 30+ fixes from a full-codebase review. Highlights,
+with the things worth testing starred:
+
+### ⭐ Captions survive interruptions (please test)
+- **A phone call no longer kills captioning** — capture pauses for the call
+  and auto-resumes after. Same for plugging/unplugging headphones or a
+  Bluetooth device connecting mid-session: Earshot re-pins the iPhone mic and
+  keeps going. Try: start captioning, receive a call, hang up → captions
+  should resume by themselves.
+- **An urgent-sound alert no longer wipes the conversation.** The full-screen
+  smoke-alarm/doorbell alert now overlays the session; dismiss it and the
+  transcript is intact. Opening Settings mid-session keeps it running too.
+
+### ⭐ Quiet-room stability (please test)
+- Leaving Earshot listening in a silent room used to slowly eat memory and
+  battery. Fixed — leave it running through a long quiet stretch and it
+  should stay cool and stable.
+
+### Also fixed
+- Rewind/transcript timestamps are now sensible (were absurd hour values).
+- If a model download fails, you now get a Retry button instead of a stuck
+  "downloading" screen; first-run screens show the real model name and size.
+- Existing users keep their Whisper Small — no silent switch to Base.
+- Interrupted sessions (force-quit/crash) no longer show ever-growing
+  durations in History; empty conversations no longer linger invisibly.
+- Smoother scrolling in long conversations.
+- VoiceOver now announces which option is selected in Settings pickers; the
+  text-size screen follows Dynamic Type.
+- Copy corrections: sound counts, model descriptions, download hints.
+
+---
+
 ## Build 36 (1.0.1)
 
 Faster first-run, honest download UI, and a cleaner caption screen.
