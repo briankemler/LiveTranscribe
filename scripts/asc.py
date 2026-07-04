@@ -193,6 +193,84 @@ def cmd_wait_build(token: str, args) -> None:
         token = make_token()  # refresh in case of long waits
 
 
+def cmd_release(token: str, args) -> None:
+    """Full new-release flow: ensure an editable appStoreVersion exists for --version,
+    set its What's New text, attach the build, and submit to App Review."""
+    b = find_build(token, args.build)
+    if not b:
+        sys.exit(f"build {args.build} not found")
+    if b["attributes"]["processingState"] != "VALID":
+        sys.exit(f"build {args.build} is {b['attributes']['processingState']}, not VALID")
+    build_id = b["id"]
+
+    notes = Path(args.notes_file).read_text().strip() if args.notes_file else None
+
+    # 1. Find an editable version matching --version, or create one.
+    res = api("GET", q(
+        f"/v1/apps/{APP_ID}/appStoreVersions",
+        **{"filter[platform]": PLATFORM, "limit": "10"},
+    ), token)
+    editable_states = {"PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED",
+                       "METADATA_REJECTED", "INVALID_BINARY"}
+    version = next(
+        (v for v in res.get("data", [])
+         if v["attributes"]["versionString"] == args.version
+         and v["attributes"]["appStoreState"] in editable_states),
+        None,
+    )
+    if version:
+        print(f"Version {args.version} already exists ({version['attributes']['appStoreState']})")
+    else:
+        print(f"Creating App Store version {args.version}…")
+        version = api("POST", "/v1/appStoreVersions", token, {"data": {
+            "type": "appStoreVersions",
+            "attributes": {"platform": PLATFORM, "versionString": args.version},
+            "relationships": {"app": {"data": {"type": "apps", "id": APP_ID}}},
+        }})["data"]
+    version_id = version["id"]
+
+    # 2. What's New on every localization (required for update submissions).
+    if notes:
+        locs = api("GET", f"/v1/appStoreVersions/{version_id}/appStoreVersionLocalizations",
+                   token).get("data", [])
+        for loc in locs:
+            print(f"  setting What's New for {loc['attributes'].get('locale')}")
+            api("PATCH", f"/v1/appStoreVersionLocalizations/{loc['id']}", token, {"data": {
+                "type": "appStoreVersionLocalizations", "id": loc["id"],
+                "attributes": {"whatsNew": notes},
+            }})
+
+    if not args.yes:
+        sys.exit("Version prepared. Re-run with --yes to attach the build and submit.")
+
+    # 3. Attach the build.
+    print(f"  attaching build {args.build}…")
+    api("PATCH", f"/v1/appStoreVersions/{version_id}/relationships/build", token,
+        {"data": {"type": "builds", "id": build_id}})
+
+    # 4. Create + submit the review submission.
+    print("  creating review submission…")
+    sub = api("POST", "/v1/reviewSubmissions", token, {"data": {
+        "type": "reviewSubmissions",
+        "attributes": {"platform": PLATFORM},
+        "relationships": {"app": {"data": {"type": "apps", "id": APP_ID}}},
+    }})["data"]
+    sub_id = sub["id"]
+    api("POST", "/v1/reviewSubmissionItems", token, {"data": {
+        "type": "reviewSubmissionItems",
+        "relationships": {
+            "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": sub_id}},
+            "appStoreVersion": {"data": {"type": "appStoreVersions", "id": version_id}},
+        },
+    }})
+    print("  submitting to App Review…")
+    api("PATCH", f"/v1/reviewSubmissions/{sub_id}", token, {"data": {
+        "type": "reviewSubmissions", "id": sub_id,
+        "attributes": {"submitted": True},
+    }})
+    print(f"✅ Submitted {args.version} (build {args.build}) to App Review (submission {sub_id}).")
+
+
 def cmd_resubmit(token: str, args) -> None:
     # 1. Build must exist and be processed.
     b = find_build(token, args.build)
@@ -283,6 +361,12 @@ def main() -> None:
     pr.add_argument("build")
     pr.add_argument("--yes", action="store_true", help="actually submit")
 
+    pl = sub.add_parser("release", help="create version + What's New + attach build + submit")
+    pl.add_argument("build")
+    pl.add_argument("--version", required=True, help="marketing version, e.g. 1.0.1")
+    pl.add_argument("--notes-file", help="path to the What's New text")
+    pl.add_argument("--yes", action="store_true", help="actually attach + submit")
+
     args = p.parse_args()
     token = make_token()
     {
@@ -290,6 +374,7 @@ def main() -> None:
         "builds": cmd_builds,
         "wait-build": cmd_wait_build,
         "resubmit": cmd_resubmit,
+        "release": cmd_release,
     }[args.cmd](token, args)
 
 
