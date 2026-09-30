@@ -19,9 +19,10 @@ struct SettingsView: View {
 
     /// Hidden developer-tools gate: the Developer section only appears after tapping the Version
     /// row ~7 times (the classic build-number easter egg), so it's invisible to normal users but
-    /// always reachable for field debugging. Session-local — re-tap each launch.
+    /// always reachable for field debugging. The unlocked flag lives on AppState (still
+    /// session-local — re-tap each launch) because ModelSettingsView keys its experimental
+    /// tier off it too; only the tap counter stays view-local.
     @State private var devTapCount = 0
-    @State private var devUnlocked = false
     @State private var devHaptics = UINotificationFeedbackGenerator()
 
     var body: some View {
@@ -117,7 +118,7 @@ struct SettingsView: View {
 
                     // Hidden until the Version row is tapped ~7 times — keeps dev tools out of the
                     // shipped UI while staying reachable for field debugging.
-                    if devUnlocked {
+                    if state.devToolsUnlocked {
                         section("Developer", items: [
                             .toggle(
                                 label: "Show transcription diagnostics",
@@ -164,12 +165,12 @@ struct SettingsView: View {
         case tapReadout(label: String, value: String, action: () -> Void)
     }
 
-    /// Count taps on the Version row; reveal the Developer section on the 7th.
+    /// Count taps on the Version row; reveal the Developer tools on the 7th.
     private func registerDevTap() {
-        guard !devUnlocked else { return }
+        guard !state.devToolsUnlocked else { return }
         devTapCount += 1
         if devTapCount >= 7 {
-            withAnimation { devUnlocked = true }
+            withAnimation { state.devToolsUnlocked = true }
             devHaptics.prepare()
             devHaptics.notificationOccurred(.success)
         }

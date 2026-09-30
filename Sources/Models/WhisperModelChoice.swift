@@ -8,12 +8,16 @@ enum WhisperModelChoice: String, CaseIterable, Identifiable, Sendable, Hashable,
     case tiny
     case base
     case small
-
-    // NOTE: Large v3 and Large v3 Turbo are intentionally absent from v1. They worked in
-    // controlled tests but in practice are too slow on iPhone (15+ min compile on first load,
-    // sub-realtime inference even on A18 Pro) for a "live" caption experience. Re-introducing
-    // them needs a different pipeline — 30 s VAD-segmented windows instead of 3 s sliding —
-    // which is v2 work.
+    /// EXPERIMENTAL — Large v3 Turbo, quantized (626 MB). Big accuracy win for non-English
+    /// (e.g. Swedish ~15% → ~8% WER), but full-precision large models were ALREADY tried and
+    /// rejected for v1: our pipeline re-runs the whole encoder every ~1 s pass (Whisper pads
+    /// input to 30 s), and large-v3's encoder is ~8× Small's — sub-realtime even on A18 Pro,
+    /// plus a very long first Core ML compile. This quantized variant may fare better; until
+    /// measured on-device it stays DEV-GATED (7-tap Developer unlock) and RAM-gated (≥6 GB).
+    /// REMOVAL: delete this case + the "MAX ACCURACY" section in ModelSettingsView. Persisted
+    /// tweaks survive removal — Tweaks' per-field decoder falls back to `.base` on an unknown
+    /// raw value — but map largeTurbo → .small explicitly in TweaksStore.load if we remove it.
+    case largeTurbo
 
     var id: String { rawValue }
 
@@ -23,6 +27,7 @@ enum WhisperModelChoice: String, CaseIterable, Identifiable, Sendable, Hashable,
         case .tiny:  "openai_whisper-tiny"
         case .base:  "openai_whisper-base"
         case .small: "openai_whisper-small"
+        case .largeTurbo: "openai_whisper-large-v3-v20240930_626MB"
         }
     }
 
@@ -31,6 +36,7 @@ enum WhisperModelChoice: String, CaseIterable, Identifiable, Sendable, Hashable,
         case .tiny:  "Whisper Tiny"
         case .base:  "Whisper Base"
         case .small: "Whisper Small"
+        case .largeTurbo: "Whisper Large Turbo"
         }
     }
 
@@ -40,6 +46,7 @@ enum WhisperModelChoice: String, CaseIterable, Identifiable, Sendable, Hashable,
         case .tiny:  39
         case .base:  74
         case .small: 244
+        case .largeTurbo: 626
         }
     }
 
@@ -52,18 +59,31 @@ enum WhisperModelChoice: String, CaseIterable, Identifiable, Sendable, Hashable,
             "Cheap upgrade from Tiny. Works fine on older phones."
         case .small:
             "Best balance for daily use. Real-time on A17 and faster."
+        case .largeTurbo:
+            "Most accurate, biggest win for non-English. Experimental: first load is slow and captions may lag on all but the newest iPhones."
         }
     }
 
     /// Coarse quality tier — drives the section grouping in the picker.
     enum Tier: Sendable {
-        case light, balanced
+        case light, balanced, max
     }
 
     var tier: Tier {
         switch self {
         case .tiny, .base: .light
         case .small:       .balanced
+        case .largeTurbo:  .max
+        }
+    }
+
+    /// Whether this device can realistically hold the model. Large Turbo needs ~1–1.5 GB peak
+    /// alongside pyannote; the iOS 17 floor includes 3–4 GB-RAM phones where that jetsams.
+    /// 5.5 GB threshold ≈ "6 GB-class or better" after the OS's share of reported memory.
+    var isSupportedOnThisDevice: Bool {
+        switch self {
+        case .tiny, .base, .small: true
+        case .largeTurbo: ProcessInfo.processInfo.physicalMemory >= 5_500_000_000
         }
     }
 

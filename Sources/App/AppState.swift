@@ -23,6 +23,11 @@ final class AppState {
     /// Whether the floating Tweaks sheet is showing.
     var tweaksOpen: Bool = false
 
+    /// Developer-tools gate (tap the Version row 7× in Settings). Session-local by design —
+    /// re-tap each launch. Lives here (not view @State) because more than one screen keys off
+    /// it: SettingsView's Developer section and the experimental tier in ModelSettingsView.
+    var devToolsUnlocked: Bool = false
+
     /// Showcase mode (frame-by-frame deck navigation, mirrors the HTML export's slideshow).
     var showcaseOpen: Bool = false
     var showcaseIndex: Int = 0

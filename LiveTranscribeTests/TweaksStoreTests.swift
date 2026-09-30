@@ -84,4 +84,40 @@ struct TweaksStoreTests {
         #expect(loaded.translateToEnglish == false)
         #expect(loaded.soundRecognitionEnabled == true)
     }
+
+    /// The experimental Large Turbo tier must round-trip like any other model choice.
+    @Test("Large Turbo selection round-trips")
+    func largeTurboRoundTrips() {
+        let defaults = isolatedDefaults()
+        TweaksStore.defaults = defaults
+        defer { TweaksStore.defaults = .standard }
+
+        var tweaks = Tweaks()
+        tweaks.transcriptionModel = .largeTurbo
+        TweaksStore.save(tweaks)
+        #expect(TweaksStore.load().transcriptionModel == .largeTurbo)
+        #expect(WhisperModelChoice.largeTurbo.whisperKitName == "openai_whisper-large-v3-v20240930_626MB")
+    }
+
+    /// REMOVAL SAFETY for the experimental tier: if a future build deletes the `largeTurbo`
+    /// case, the persisted raw value must reset only the model field (to the default), not
+    /// nuke the whole settings blob. We simulate "a raw value this build doesn't know".
+    @Test("Unknown persisted model raw value resets only that field")
+    func unknownModelRawValueFallsBack() {
+        let defaults = isolatedDefaults()
+        TweaksStore.defaults = defaults
+        defer { TweaksStore.defaults = .standard }
+
+        let blob = """
+        {
+            "palette": "midnight",
+            "transcriptionModel": "someRemovedFutureModel"
+        }
+        """
+        defaults.set(Data(blob.utf8), forKey: TweaksStore.storageKey)
+
+        let loaded = TweaksStore.load()
+        #expect(loaded.transcriptionModel == Tweaks().transcriptionModel)
+        #expect(loaded.palette == .midnight)  // the rest of the blob survives
+    }
 }

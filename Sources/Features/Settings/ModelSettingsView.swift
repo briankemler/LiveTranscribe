@@ -15,6 +15,14 @@ struct ModelSettingsView: View {
     private var balancedModels: [WhisperModelChoice] {
         WhisperModelChoice.allCases.filter { $0.tier == .balanced }
     }
+    /// Experimental tier (Large Turbo). Shown only behind the developer gate until it's proven
+    /// to keep up with the live pipeline on real hardware — see the note in WhisperModelChoice.
+    /// If someone selected it while unlocked, keep showing it even after a relaunch re-locks
+    /// the gate, so their active model is never invisible in its own picker.
+    private var maxModels: [WhisperModelChoice] {
+        guard state.devToolsUnlocked || state.tweaks.transcriptionModel.tier == .max else { return [] }
+        return WhisperModelChoice.allCases.filter { $0.tier == .max }
+    }
 
     private func isDownloaded(_ choice: WhisperModelChoice) -> Bool {
         state.transcription.downloadedModels.contains(choice.whisperKitName)
@@ -39,6 +47,9 @@ struct ModelSettingsView: View {
 
                     section(title: "LIGHTEST", color: theme.inkMute, models: lightModels)
                     section(title: "BALANCED", color: theme.accent,  models: balancedModels)
+                    if !maxModels.isEmpty {
+                        section(title: "MAX ACCURACY · EXPERIMENTAL", color: theme.alert, models: maxModels)
+                    }
 
                     aboutCard
                 }
@@ -107,6 +118,7 @@ struct ModelSettingsView: View {
         let isSelected = state.tweaks.transcriptionModel == choice
         let isLoadedNow = state.transcription.loadedModelName == choice.whisperKitName
         let isOnDisk = isDownloaded(choice)
+        let supported = choice.isSupportedOnThisDevice
         // Trash button shows for cached, non-active models — we never let the user delete the model
         // currently in use.
         let canDelete = isOnDisk && !isSelected && !isLoadedNow
@@ -147,8 +159,10 @@ struct ModelSettingsView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
+                .opacity(supported ? 1 : 0.45)
             }
             .buttonStyle(.plain)
+            .disabled(!supported)
             // VoiceOver: the checkmark is visual-only — expose selection as a trait.
             .accessibilityAddTraits(isSelected ? [.isSelected] : [])
 
@@ -182,7 +196,11 @@ struct ModelSettingsView: View {
         isLoadedNow: Bool,
         isOnDisk: Bool
     ) -> some View {
-        if isSelected {
+        if !choice.isSupportedOnThisDevice {
+            Text("Needs a newer iPhone (6 GB+ memory)")
+                .font(.scaled(size: 11, weight: .semibold, relativeTo: .caption2))
+                .foregroundStyle(theme.inkMute)
+        } else if isSelected {
             if case .loading(let p) = state.transcription.loadState {
                 Text("Downloading · \(Int(p * 100))%")
                     .font(.scaled(size: 11, weight: .semibold, relativeTo: .caption2))
@@ -229,6 +247,7 @@ struct ModelSettingsView: View {
     }
 
     private func pickModel(_ choice: WhisperModelChoice) {
+        guard choice.isSupportedOnThisDevice else { return }
         state.tweaks.transcriptionModel = choice
         Task {
             try? await state.transcription.setModel(choice.whisperKitName)
