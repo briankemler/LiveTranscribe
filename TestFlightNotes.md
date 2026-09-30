@@ -14,6 +14,28 @@ Keep under 4000 chars. Latest build notes first.
 
 ---
 
+## Build 38 (1.0.2)
+
+Adds an EXPERIMENTAL max-accuracy model, hidden behind the developer gate —
+regular testers will see no visible change in this build.
+
+### ⭐ Whisper Large v3 Turbo (developer-gated — for internal evaluation)
+- Unlock: Settings → tap the Version row 7× → Transcription model → a new
+  "MAX ACCURACY · EXPERIMENTAL" section with **Whisper Large Turbo** (626 MB).
+- Why: the biggest accuracy jump is for non-English captioning (Swedish,
+  etc.). English gains are modest over Small.
+- What to judge before we consider un-gating it for everyone:
+  1. **First load** — how long does "Compiling for Neural Engine…" take?
+     (Large models historically took minutes on first load.)
+  2. **Keeping up** — talk continuously for a few minutes: do captions stay
+     current, or fall progressively behind? Falling behind = not shippable.
+  3. **Heat** over a ~10-minute session.
+- Requires a 6 GB+ RAM iPhone (the row is disabled with a note otherwise).
+  Switching back to Base/Small is instant; the model can be deleted from the
+  same screen to free the 626 MB.
+
+---
+
 ## Build 37 (1.0.1)
 
 A deep stability pass — 30+ fixes from a full-codebase review. Highlights,
