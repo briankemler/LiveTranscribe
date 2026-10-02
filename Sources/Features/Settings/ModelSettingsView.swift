@@ -15,13 +15,10 @@ struct ModelSettingsView: View {
     private var balancedModels: [WhisperModelChoice] {
         WhisperModelChoice.allCases.filter { $0.tier == .balanced }
     }
-    /// Experimental tier (Large Turbo). Shown only behind the developer gate until it's proven
-    /// to keep up with the live pipeline on real hardware — see the note in WhisperModelChoice.
-    /// If someone selected it while unlocked, keep showing it even after a relaunch re-locks
-    /// the gate, so their active model is never invisible in its own picker.
+    /// Max-accuracy tier (Large Turbo) — un-gated in 1.0.2; the per-device RAM gate on the
+    /// row (`isSupportedOnThisDevice`) is the remaining guard.
     private var maxModels: [WhisperModelChoice] {
-        guard state.devToolsUnlocked || state.tweaks.transcriptionModel.tier == .max else { return [] }
-        return WhisperModelChoice.allCases.filter { $0.tier == .max }
+        WhisperModelChoice.allCases.filter { $0.tier == .max }
     }
 
     private func isDownloaded(_ choice: WhisperModelChoice) -> Bool {
@@ -47,9 +44,7 @@ struct ModelSettingsView: View {
 
                     section(title: "LIGHTEST", color: theme.inkMute, models: lightModels)
                     section(title: "BALANCED", color: theme.accent,  models: balancedModels)
-                    if !maxModels.isEmpty {
-                        section(title: "MAX ACCURACY · EXPERIMENTAL", color: theme.alert, models: maxModels)
-                    }
+                    section(title: "MAX ACCURACY", color: theme.social, models: maxModels)
 
                     aboutCard
                 }
@@ -267,7 +262,7 @@ struct ModelSettingsView: View {
                 .font(.scaled(size: 13, relativeTo: .footnote))
                 .lineSpacing(3)
 
-            Text("Base is the default — fast to download and quick on any supported iPhone. Small is more accurate if you want the best transcription; Tiny is the fastest and lightest but misses more words.")
+            Text("Base is the default — fast to download and quick on any supported iPhone. Small is more accurate for everyday use; Tiny is the fastest and lightest but misses more words. Large Turbo is the most accurate of all, with the biggest gains for less common languages — if you caption Swedish, Tagalog, Vietnamese, or anything beyond the majors, it's worth the bigger download on a recent iPhone.")
                 .font(.scaled(size: 12, relativeTo: .caption1))
                 .foregroundStyle(theme.inkMute)
                 .lineSpacing(3)

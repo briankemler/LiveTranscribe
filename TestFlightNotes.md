@@ -14,6 +14,24 @@ Keep under 4000 chars. Latest build notes first.
 
 ---
 
+## Build 39 (1.0.2)
+
+The max-accuracy model is now visible to everyone (release candidate for 1.0.2).
+
+### ⭐ Whisper Large Turbo — now a regular option
+- Settings → Transcription model → "MAX ACCURACY" → **Whisper Large Turbo**
+  (626 MB). Most accurate model we offer; the biggest gains are for less
+  common languages (Swedish, Vietnamese, Tagalog, …).
+- Requires a 6 GB+ RAM iPhone — on older phones the row is visible but
+  disabled with an explanation.
+- Expect the first load to take a few minutes ("Compiling for Neural
+  Engine…") — one-time per device.
+- Please test: pick it, caption continuously for a few minutes (ideally in a
+  non-English language), and confirm captions keep pace and the phone stays
+  reasonable. Switching back to Base/Small is instant.
+
+---
+
 ## Build 38 (1.0.2)
 
 Adds an EXPERIMENTAL max-accuracy model, hidden behind the developer gate —

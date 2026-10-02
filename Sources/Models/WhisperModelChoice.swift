@@ -8,15 +8,15 @@ enum WhisperModelChoice: String, CaseIterable, Identifiable, Sendable, Hashable,
     case tiny
     case base
     case small
-    /// EXPERIMENTAL — Large v3 Turbo, quantized (626 MB). Big accuracy win for non-English
-    /// (e.g. Swedish ~15% → ~8% WER), but full-precision large models were ALREADY tried and
-    /// rejected for v1: our pipeline re-runs the whole encoder every ~1 s pass (Whisper pads
-    /// input to 30 s), and large-v3's encoder is ~8× Small's — sub-realtime even on A18 Pro,
-    /// plus a very long first Core ML compile. This quantized variant may fare better; until
-    /// measured on-device it stays DEV-GATED (7-tap Developer unlock) and RAM-gated (≥6 GB).
-    /// REMOVAL: delete this case + the "MAX ACCURACY" section in ModelSettingsView. Persisted
-    /// tweaks survive removal — Tweaks' per-field decoder falls back to `.base` on an unknown
-    /// raw value — but map largeTurbo → .small explicitly in TweaksStore.load if we remove it.
+    /// Large v3 Turbo, quantized (626 MB). Shipped un-gated in 1.0.2 (owner decision) as the
+    /// max-accuracy option — biggest win is long-tail languages (e.g. Swedish ~15% → ~8% WER
+    /// vs Small). Still RAM-gated (≥6 GB, `isSupportedOnThisDevice`): the full-precision large
+    /// models were rejected for v1 as sub-realtime (the pipeline re-runs the whole encoder
+    /// every ~1 s pass on 30 s-padded input), and low-RAM devices would jetsam regardless.
+    /// REMOVAL (if field feedback says it can't keep up): delete this case + the
+    /// "MAX ACCURACY" section in ModelSettingsView. Persisted tweaks survive — Tweaks'
+    /// per-field decoder falls back to `.base` on an unknown raw value — but map
+    /// largeTurbo → .small explicitly in TweaksStore.load for a kinder downgrade.
     case largeTurbo
 
     var id: String { rawValue }
@@ -60,7 +60,7 @@ enum WhisperModelChoice: String, CaseIterable, Identifiable, Sendable, Hashable,
         case .small:
             "Best balance for daily use. Real-time on A17 and faster."
         case .largeTurbo:
-            "Most accurate, biggest win for non-English. Experimental: first load is slow and captions may lag on all but the newest iPhones."
+            "Most accurate — the biggest gains are for less common languages. Needs a recent iPhone; the first load takes a few minutes."
         }
     }
 
